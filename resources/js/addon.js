@@ -1,5 +1,5 @@
-import StatamicVisualEditor from './components/fieldtypes/StatamicVisualEditor.vue'
+import AutoUuid from './components/fieldtypes/AutoUuid.vue'
 
 Statamic.booting(() => {
-    Statamic.component('statamic_visual_editor-fieldtype', StatamicVisualEditor)
+  Statamic.component('auto_uuid-fieldtype', AutoUuid)
 })
