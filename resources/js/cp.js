@@ -2,8 +2,14 @@
 
 export const SELECTORS = {
   visualIdInput: '[data-visual-id]',
-  anySet: '[data-replicator-set], [data-bard-set]',
-  headerToggle: '.replicator-set-header, .bard-set-header',
+  replicatorSet: '[data-replicator-set]',
+  // Bard sets are Tiptap node views; Statamic 6 renders them with [data-node-view-wrapper].
+  // There is no [data-bard-set] attribute in the actual CP DOM.
+  bardSet: '[data-node-view-wrapper]',
+  anySet: '[data-replicator-set], [data-node-view-wrapper]',
+  // Actual toggle: a <button type="button"> that is a direct child of the <header>
+  // inside the set. Neither .replicator-set-header nor .bard-set-header exist.
+  headerToggle: 'header > button[type="button"]',
 };
 
 const HIGHLIGHT_CLASS = 'sve-highlight';
@@ -39,8 +45,36 @@ export function collectAncestorSets(setEl) {
   return ancestors;
 }
 
+/**
+ * Returns true if the set is currently in its collapsed state.
+ *
+ * Replicator sets expose `data-collapsed="true"` when collapsed (always
+ * present; value is "true" or "false").
+ *
+ * Bard sets (Tiptap node views) carry no data attribute for collapsed state.
+ * Instead Vue's `v-show="!collapsed"` hides the content div via an inline
+ * `style="display: none;"` — detected here via `el.style.display`.
+ */
+export function isSetCollapsed(setEl) {
+  if (setEl.hasAttribute('data-replicator-set')) {
+    return setEl.dataset.collapsed === 'true';
+  }
+
+  // Bard: find the inner contenteditable container and check its last child
+  // (the content div that v-show toggles).
+  const inner = setEl.querySelector('[contenteditable="false"]');
+
+  if (inner) {
+    const contentEl = inner.lastElementChild;
+
+    return !!contentEl && contentEl.style.display === 'none';
+  }
+
+  return false;
+}
+
 export function expandSet(setEl) {
-  if (!setEl.hasAttribute('data-collapsed')) {
+  if (!isSetCollapsed(setEl)) {
     return;
   }
 
@@ -102,7 +136,27 @@ export function createMessageListener(doc = document) {
   };
 }
 
+const CP_STYLES = `
+[data-sve-hover] {
+  outline: 2px dashed rgba(99, 102, 241, 0.4);
+}
+.sve-highlight {
+  outline: 2px solid rgb(99, 102, 241) !important;
+  outline-offset: 2px;
+  animation: sve-highlight-pulse 0.4s ease-out;
+}
+@keyframes sve-highlight-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+  100% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+}
+`;
+
 export function initCp(win = window) {
+  const style = win.document.createElement('style');
+  style.id = '__sve-cp-styles';
+  style.textContent = CP_STYLES;
+  win.document.head.appendChild(style);
+
   const listener = createMessageListener(win.document);
 
   win.addEventListener('message', listener);

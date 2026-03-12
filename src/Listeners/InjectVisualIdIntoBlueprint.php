@@ -4,6 +4,7 @@ namespace Mariohamann\StatamicVisualEditor\Listeners;
 
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\GlobalVariablesBlueprintFound;
+use Statamic\Facades\Fieldset;
 
 class InjectVisualIdIntoBlueprint
 {
@@ -28,15 +29,32 @@ class InjectVisualIdIntoBlueprint
 
     private function processFields(array $fields): array
     {
-        foreach ($fields as $idx => $fieldDef) {
+        $result = [];
+
+        foreach ($fields as $fieldDef) {
+            // Expand fieldset imports inline so nested replicators/bards are reachable.
+            if (isset($fieldDef['import'])) {
+                $fieldset = Fieldset::find($fieldDef['import']);
+
+                if ($fieldset) {
+                    $result = array_merge($result, $this->processFields($fieldset->contents()['fields'] ?? []));
+                } else {
+                    $result[] = $fieldDef;
+                }
+
+                continue;
+            }
+
             $type = $fieldDef['field']['type'] ?? null;
 
             if (in_array($type, ['replicator', 'bard'], true) && isset($fieldDef['field']['sets'])) {
-                $fields[$idx]['field']['sets'] = $this->processReplicatorSets($fieldDef['field']['sets']);
+                $fieldDef['field']['sets'] = $this->processReplicatorSets($fieldDef['field']['sets']);
             }
+
+            $result[] = $fieldDef;
         }
 
-        return $fields;
+        return $result;
     }
 
     private function processReplicatorSets(array $sets): array

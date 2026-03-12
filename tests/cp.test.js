@@ -3,6 +3,7 @@ import {
   findSetByUid,
   collectAncestorSets,
   expandSet,
+  isSetCollapsed,
   highlightSet,
   handleFocus,
   handleHover,
@@ -31,9 +32,28 @@ function makeReplicatorSet(uid) {
 }
 
 function makeBardSet(uid) {
-  const set = document.createElement('div');
+  // Mirrors actual Statamic 6 Bard set DOM:
+  // [data-node-view-wrapper] > div[contenteditable] > header > button
+  //                                                 > div (content, v-show)
+  const wrapper = document.createElement('div');
 
-  set.setAttribute('data-bard-set', '');
+  wrapper.setAttribute('data-node-view-wrapper', '');
+
+  const inner = document.createElement('div');
+
+  inner.setAttribute('contenteditable', 'false');
+
+  const header = document.createElement('header');
+  const btn = document.createElement('button');
+
+  btn.type = 'button';
+  header.appendChild(btn);
+  inner.appendChild(header);
+
+  const contentDiv = document.createElement('div');
+
+  inner.appendChild(contentDiv);
+  wrapper.appendChild(inner);
 
   if (uid) {
     const input = document.createElement('input');
@@ -41,16 +61,18 @@ function makeBardSet(uid) {
     input.type = 'hidden';
     input.value = uid;
     input.setAttribute('data-visual-id', uid);
-    set.appendChild(input);
+    contentDiv.appendChild(input);
   }
 
-  return set;
+  return wrapper;
 }
 
-function addHeaderToggle(setEl, className) {
-  const header = document.createElement('div');
+function addHeaderToggle(setEl) {
+  const header = document.createElement('header');
+  const button = document.createElement('button');
 
-  header.className = className;
+  button.type = 'button';
+  header.appendChild(button);
   setEl.insertBefore(header, setEl.firstChild);
 
   return header;
@@ -149,6 +171,49 @@ describe('collectAncestorSets', () => {
 });
 
 // ---------------------------------------------------------------------------
+// isSetCollapsed
+// ---------------------------------------------------------------------------
+
+describe('isSetCollapsed', () => {
+  it('returns true for replicator set with data-collapsed="true"', () => {
+    const set = makeReplicatorSet('uid');
+
+    set.dataset.collapsed = 'true';
+
+    expect(isSetCollapsed(set)).toBe(true);
+  });
+
+  it('returns false for replicator set with data-collapsed="false"', () => {
+    const set = makeReplicatorSet('uid');
+
+    set.dataset.collapsed = 'false';
+
+    expect(isSetCollapsed(set)).toBe(false);
+  });
+
+  it('returns false for replicator set with no data-collapsed attribute', () => {
+    const set = makeReplicatorSet('uid');
+
+    expect(isSetCollapsed(set)).toBe(false);
+  });
+
+  it('returns true for bard set when content div has display:none (v-show collapsed)', () => {
+    const set = makeBardSet('uid');
+    const inner = set.querySelector('[contenteditable="false"]');
+
+    inner.lastElementChild.style.display = 'none';
+
+    expect(isSetCollapsed(set)).toBe(true);
+  });
+
+  it('returns false for bard set when content div is visible', () => {
+    const set = makeBardSet('uid');
+
+    expect(isSetCollapsed(set)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // expandSet
 // ---------------------------------------------------------------------------
 
@@ -164,12 +229,12 @@ describe('expandSet', () => {
     container.remove();
   });
 
-  it('clicks the header toggle when set is collapsed', () => {
+  it('clicks the header toggle when replicator set is collapsed', () => {
     const set = makeReplicatorSet('uid');
 
-    set.setAttribute('data-collapsed', '');
+    set.dataset.collapsed = 'true';
 
-    const header = addHeaderToggle(set, 'replicator-set-header');
+    const header = addHeaderToggle(set);
     const clickSpy = vi.fn();
 
     header.addEventListener('click', clickSpy);
@@ -180,9 +245,9 @@ describe('expandSet', () => {
     expect(clickSpy).toHaveBeenCalledOnce();
   });
 
-  it('does not click toggle when set is not collapsed', () => {
+  it('does not click toggle when replicator set is not collapsed', () => {
     const set = makeReplicatorSet('uid');
-    const header = addHeaderToggle(set, 'replicator-set-header');
+    const header = addHeaderToggle(set);
     const clickSpy = vi.fn();
 
     header.addEventListener('click', clickSpy);
@@ -193,12 +258,13 @@ describe('expandSet', () => {
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
-  it('also recognises bard-set-header as toggle', () => {
+  it('clicks the header toggle when bard set is collapsed (v-show content div hidden)', () => {
     const set = makeBardSet('uid');
+    const inner = set.querySelector('[contenteditable="false"]');
 
-    set.setAttribute('data-collapsed', '');
+    inner.lastElementChild.style.display = 'none';
 
-    const header = addHeaderToggle(set, 'bard-set-header');
+    const header = set.querySelector('header');
     const clickSpy = vi.fn();
 
     header.addEventListener('click', clickSpy);
@@ -207,6 +273,19 @@ describe('expandSet', () => {
     expandSet(set);
 
     expect(clickSpy).toHaveBeenCalledOnce();
+  });
+
+  it('does not click toggle when bard set is not collapsed', () => {
+    const set = makeBardSet('uid');
+    const header = set.querySelector('header');
+    const clickSpy = vi.fn();
+
+    header.addEventListener('click', clickSpy);
+    container.appendChild(set);
+
+    expandSet(set);
+
+    expect(clickSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -279,9 +358,9 @@ describe('handleFocus', () => {
 
     const set = makeReplicatorSet('focus-uid');
 
-    set.setAttribute('data-collapsed', '');
+    set.dataset.collapsed = 'true';
 
-    const header = addHeaderToggle(set, 'replicator-set-header');
+    const header = addHeaderToggle(set);
     const clickSpy = vi.fn();
 
     header.addEventListener('click', clickSpy);
@@ -301,18 +380,18 @@ describe('handleFocus', () => {
 
     const outer = makeReplicatorSet('outer-uid');
 
-    outer.setAttribute('data-collapsed', '');
+    outer.dataset.collapsed = 'true';
 
-    const outerHeader = addHeaderToggle(outer, 'replicator-set-header');
+    const outerHeader = addHeaderToggle(outer);
     const outerClickSpy = vi.fn();
 
     outerHeader.addEventListener('click', outerClickSpy);
 
     const inner = makeReplicatorSet('inner-uid');
 
-    inner.setAttribute('data-collapsed', '');
+    inner.dataset.collapsed = 'true';
 
-    const innerHeader = addHeaderToggle(inner, 'replicator-set-header');
+    const innerHeader = addHeaderToggle(inner);
     const innerClickSpy = vi.fn();
 
     innerHeader.addEventListener('click', innerClickSpy);

@@ -45,17 +45,17 @@ class InjectBridgeScript
 
   protected function resolveBridgeUrl(): string
   {
-    $manifestPath = public_path('vendor/mariohamann/statamic-visual-editor/build/manifest.json');
+    $manifestPath = public_path('vendor/statamic-visual-editor/build/manifest.json');
 
     if (file_exists($manifestPath)) {
       $manifest = json_decode(file_get_contents($manifestPath), true);
       $entry = $manifest['resources/js/bridge.js'] ?? null;
 
       if ($entry && isset($entry['file'])) {
-        return asset('vendor/mariohamann/statamic-visual-editor/build/' . $entry['file']);
+        return asset('vendor/statamic-visual-editor/build/' . $entry['file']);
       }
     }
 
-    return asset('vendor/mariohamann/statamic-visual-editor/bridge.js');
+    return asset('vendor/statamic-visual-editor/bridge.js');
   }
 }

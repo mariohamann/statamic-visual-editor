@@ -15,44 +15,44 @@ use Statamic\Providers\AddonServiceProvider;
 
 class ServiceProvider extends AddonServiceProvider
 {
-  protected $fieldtypes = [
-    AutoUuidFieldtype::class,
-  ];
+    protected $fieldtypes = [
+        AutoUuidFieldtype::class,
+    ];
 
-  protected $tags = [
-    VisualEdit::class,
-  ];
+    protected $tags = [
+        VisualEdit::class,
+    ];
 
-  protected $listen = [
-    EntryBlueprintFound::class => [
-      InjectVisualIdIntoBlueprint::class,
-    ],
-    GlobalVariablesBlueprintFound::class => [
-      InjectVisualIdIntoBlueprint::class,
-    ],
-    EntrySaving::class => [
-      StampVisualIds::class,
-    ],
-    GlobalVariablesSaving::class => [
-      StampVisualIds::class,
-    ],
-  ];
+    protected $listen = [
+        EntryBlueprintFound::class => [
+            InjectVisualIdIntoBlueprint::class,
+        ],
+        GlobalVariablesBlueprintFound::class => [
+            InjectVisualIdIntoBlueprint::class,
+        ],
+        EntrySaving::class => [
+            StampVisualIds::class,
+        ],
+        GlobalVariablesSaving::class => [
+            StampVisualIds::class,
+        ],
+    ];
 
-  protected $middlewareGroups = [
-    'web' => [
-      InjectBridgeScript::class,
-    ],
-  ];
+    protected $middlewareGroups = [
+        'web' => [
+            InjectBridgeScript::class,
+        ],
+    ];
 
-  protected $vite = [
-    'input' => [
-      'resources/js/cp.js',
-    ],
-    'publicDirectory' => 'resources/dist',
-  ];
+    protected $vite = [
+        'input' => [
+            'resources/js/addon.js',
+        ],
+        'publicDirectory' => 'resources/dist',
+    ];
 
-  public function bootAddon(): void
-  {
-    //
-  }
+    public function bootAddon(): void
+    {
+        //
+    }
 }
