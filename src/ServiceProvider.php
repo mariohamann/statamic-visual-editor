@@ -3,8 +3,10 @@
 namespace Mariohamann\StatamicVisualEditor;
 
 use Mariohamann\StatamicVisualEditor\Fieldtypes\AutoUuidFieldtype;
+use Mariohamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
 use Mariohamann\StatamicVisualEditor\Listeners\InjectVisualIdIntoBlueprint;
 use Mariohamann\StatamicVisualEditor\Listeners\StampVisualIds;
+use Mariohamann\StatamicVisualEditor\Tags\VisualEdit;
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\EntrySaving;
 use Statamic\Events\GlobalVariablesBlueprintFound;
@@ -15,6 +17,10 @@ class ServiceProvider extends AddonServiceProvider
 {
   protected $fieldtypes = [
     AutoUuidFieldtype::class,
+  ];
+
+  protected $tags = [
+    VisualEdit::class,
   ];
 
   protected $listen = [
@@ -29,6 +35,12 @@ class ServiceProvider extends AddonServiceProvider
     ],
     GlobalVariablesSaving::class => [
       StampVisualIds::class,
+    ],
+  ];
+
+  protected $middlewareGroups = [
+    'web' => [
+      InjectBridgeScript::class,
     ],
   ];
 

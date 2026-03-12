@@ -1,0 +1,13 @@
+tabs:
+  main:
+    display: Settings
+    sections:
+      -
+        fields:
+          -
+            handle: enabled
+            field:
+              type: toggle
+              display: Enable Visual Editor
+              instructions: Inject the bridge script into Live Preview responses and enable click-to-edit functionality.
+              default: true
