@@ -73,17 +73,25 @@ export function injectStyles(doc) {
         [data-sid][data-sid-label]::after {
             content: attr(data-sid-label);
             position: absolute;
-            top: 0;
-            left: 0;
+            top: -8px;
+            left: calc(-2px - var(--sve-outline-width, 0));
+            transform: translateY(calc(-100%));
             background: var(--sve-focus-color, currentColor);
             color: #fff;
             font-size: 10px;
             font-family: sans-serif;
-            padding: 1px 6px;
-            border-radius: 0 0 4px 0;
+            padding: 2px 8px !important;
+            border-radius: 4px;
             pointer-events: none;
             z-index: 9999;
             white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        [data-sid-inner][data-sid-label]::after,
+        [data-sid-hover][data-sid-label]::after,
+        [data-sid-active][data-sid-label]::after {
+            opacity: 1;
         }
     `;
 
