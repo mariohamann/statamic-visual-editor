@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initBridge, injectStyles, createClickHandler, createHoverHandler, createMessageReceiver, findTextAfterSetUid } from '../resources/js/bridge.js';
+import { initBridge, injectStyles, createClickHandler, createHoverHandler, createMessageReceiver, findTextAfterSetUid, injectCpVariables, createMouseMoveHandler } from '../resources/js/bridge.js';
 
 const STYLES_ID = '__sve-bridge-styles';
 
@@ -92,7 +92,7 @@ describe('initBridge', () => {
     expect(document.getElementById(STYLES_ID)).not.toBeNull();
   });
 
-  it('attaches click, mouseover, and message listeners when inside an iframe', () => {
+  it('attaches click, mousemove, mouseover, and message listeners when inside an iframe', () => {
     const win = makeFakeWin();
     const spy = vi.spyOn(document, 'addEventListener');
 
@@ -101,10 +101,200 @@ describe('initBridge', () => {
     const docTypes = spy.mock.calls.map((call) => call[0]);
 
     expect(docTypes).toContain('click');
+    expect(docTypes).toContain('mousemove');
     expect(docTypes).toContain('mouseover');
     expect(win.addEventListener).toHaveBeenCalledWith('message', expect.any(Function));
 
     spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// injectCpVariables
+// ---------------------------------------------------------------------------
+
+describe('injectCpVariables', () => {
+  afterEach(() => {
+    document.documentElement.style.removeProperty('--sve-outline-width');
+    document.documentElement.style.removeProperty('--sve-focus-color');
+    document.documentElement.style.removeProperty('--sve-hover-color');
+  });
+
+  it('sets fallback values when CP is inaccessible (cross-origin)', () => {
+    const win = {
+      top: {
+        get document() {
+          throw new Error('cross-origin');
+        },
+      },
+    };
+
+    injectCpVariables(document, win);
+
+    expect(document.documentElement.style.getPropertyValue('--sve-outline-width')).toBe('2px');
+    expect(document.documentElement.style.getPropertyValue('--sve-focus-color')).toBe('currentColor');
+    expect(document.documentElement.style.getPropertyValue('--sve-hover-color')).toBe('#9CA3AF');
+  });
+
+  it('sets fallback values when CP variables are not defined', () => {
+    const win = { top: { document: { documentElement: document.createElement('div') } } };
+
+    injectCpVariables(document, win);
+
+    expect(document.documentElement.style.getPropertyValue('--sve-outline-width')).toBe('2px');
+    expect(document.documentElement.style.getPropertyValue('--sve-focus-color')).toBe('currentColor');
+    expect(document.documentElement.style.getPropertyValue('--sve-hover-color')).toBe('#9CA3AF');
+  });
+
+  it('copies all three variables from CP when defined', () => {
+    const cpRoot = document.createElement('div');
+
+    cpRoot.style.setProperty('--focus-outline-width', '3px');
+    cpRoot.style.setProperty('--focus-outline-color', 'oklch(0.5 0.2 250)');
+    cpRoot.style.setProperty('--theme-color-gray-400', '#aaa');
+
+    const win = { top: { document: { documentElement: cpRoot } } };
+
+    injectCpVariables(document, win);
+
+    expect(document.documentElement.style.getPropertyValue('--sve-outline-width')).toBe('3px');
+    expect(document.documentElement.style.getPropertyValue('--sve-focus-color')).toBe('oklch(0.5 0.2 250)');
+    expect(document.documentElement.style.getPropertyValue('--sve-hover-color')).toBe('#aaa');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createMouseMoveHandler
+// ---------------------------------------------------------------------------
+
+describe('createMouseMoveHandler', () => {
+  let win;
+  let container;
+
+  beforeEach(() => {
+    win = { self: {}, top: {}, document };
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    container.remove();
+    document.documentElement.classList.remove('sve-mouse-active');
+    document.querySelectorAll('[data-sid-inner]').forEach((el) => el.removeAttribute('data-sid-inner'));
+    vi.useRealTimers();
+  });
+
+  it('adds sve-mouse-active class on mouse movement', () => {
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    container.appendChild(el);
+
+    const handler = createMouseMoveHandler(win);
+
+    document.addEventListener('mousemove', handler, true);
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    document.removeEventListener('mousemove', handler, true);
+
+    expect(document.documentElement.classList.contains('sve-mouse-active')).toBe(true);
+  });
+
+  it('sets data-sid-inner on the innermost hovered [data-sid] element', () => {
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    container.appendChild(el);
+
+    const handler = createMouseMoveHandler(win);
+
+    document.addEventListener('mousemove', handler, true);
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    document.removeEventListener('mousemove', handler, true);
+
+    expect(el.hasAttribute('data-sid-inner')).toBe(true);
+  });
+
+  it('moves data-sid-inner to the new innermost element on subsequent movements', () => {
+    const el1 = document.createElement('div');
+
+    el1.setAttribute('data-sid', 'uid-1');
+
+    const el2 = document.createElement('div');
+
+    el2.setAttribute('data-sid', 'uid-2');
+    container.appendChild(el1);
+    container.appendChild(el2);
+
+    const handler = createMouseMoveHandler(win);
+
+    document.addEventListener('mousemove', handler, true);
+    el1.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    expect(el1.hasAttribute('data-sid-inner')).toBe(true);
+
+    el2.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    expect(el1.hasAttribute('data-sid-inner')).toBe(false);
+    expect(el2.hasAttribute('data-sid-inner')).toBe(true);
+
+    document.removeEventListener('mousemove', handler, true);
+  });
+
+  it('clears sve-mouse-active class and data-sid-inner after 1500ms of no movement', () => {
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    container.appendChild(el);
+
+    const handler = createMouseMoveHandler(win);
+
+    document.addEventListener('mousemove', handler, true);
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    document.removeEventListener('mousemove', handler, true);
+
+    expect(document.documentElement.classList.contains('sve-mouse-active')).toBe(true);
+
+    vi.advanceTimersByTime(1500);
+
+    expect(document.documentElement.classList.contains('sve-mouse-active')).toBe(false);
+    expect(el.hasAttribute('data-sid-inner')).toBe(false);
+  });
+
+  it('resets the clear timer on each movement', () => {
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    container.appendChild(el);
+
+    const handler = createMouseMoveHandler(win);
+
+    document.addEventListener('mousemove', handler, true);
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    vi.advanceTimersByTime(1000);
+    // Move again before timeout fires
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    vi.advanceTimersByTime(1000);
+    // Still active — timer was reset
+    expect(document.documentElement.classList.contains('sve-mouse-active')).toBe(true);
+
+    vi.advanceTimersByTime(500);
+    // Now the full 1500ms has passed since last movement
+    expect(document.documentElement.classList.contains('sve-mouse-active')).toBe(false);
+
+    document.removeEventListener('mousemove', handler, true);
+  });
+
+  it('does not set data-sid-inner when moving over a non-annotated element', () => {
+    const el = document.createElement('div');
+
+    container.appendChild(el);
+
+    const handler = createMouseMoveHandler(win);
+
+    document.addEventListener('mousemove', handler, true);
+    el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    document.removeEventListener('mousemove', handler, true);
+
+    expect(document.querySelector('[data-sid-inner]')).toBeNull();
   });
 });
 

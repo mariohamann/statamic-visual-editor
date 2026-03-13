@@ -3,8 +3,36 @@
 
 const ACTIVE_ATTR = 'data-sid-active';
 const HOVER_ATTR = 'data-sid-hover';
+const INNER_ATTR = 'data-sid-inner';
 const SID_ATTR = 'data-sid';
 const STYLES_ID = '__sve-bridge-styles';
+const MOUSE_ACTIVE_CLASS = 'sve-mouse-active';
+const HOVER_CLEAR_DELAY = 1500;
+
+/**
+ * Copies --focus-outline-width and --focus-outline-color from the CP (parent)
+ * document into the preview iframe's documentElement so both ends share the
+ * same outline token values. Falls back to safe defaults when the CP is
+ * inaccessible (cross-origin guard) or the variables are not defined.
+ */
+export function injectCpVariables(doc, win) {
+  let outlineWidth = '2px';
+  let focusColor = 'currentColor';
+  let hoverColor = '#9CA3AF';
+
+  try {
+    const cpStyle = getComputedStyle(win.top.document.documentElement);
+    outlineWidth = cpStyle.getPropertyValue('--focus-outline-width').trim() || outlineWidth;
+    focusColor = cpStyle.getPropertyValue('--focus-outline-color').trim() || focusColor;
+    hoverColor = cpStyle.getPropertyValue('--theme-color-gray-400').trim() || hoverColor;
+  } catch {
+    // cross-origin or CP not accessible — use defaults
+  }
+
+  doc.documentElement.style.setProperty('--sve-outline-width', outlineWidth);
+  doc.documentElement.style.setProperty('--sve-focus-color', focusColor);
+  doc.documentElement.style.setProperty('--sve-hover-color', hoverColor);
+}
 
 export function injectStyles(doc) {
   if (doc.getElementById(STYLES_ID)) {
@@ -17,28 +45,37 @@ export function injectStyles(doc) {
   style.textContent = `
         [data-sid] {
             cursor: pointer;
-            outline: 2px dashed transparent;
+            outline-width: var(--sve-outline-width, 2px);
+            outline-style: dashed;
+            outline-color: transparent;
             outline-offset: 2px;
             transition: outline-color 0.15s ease;
         }
-        [data-sid]:hover,
+        .${MOUSE_ACTIVE_CLASS} [data-sid] {
+            outline-color: var(--sve-hover-color, #9CA3AF);
+        }
+        [data-sid-inner],
         [data-sid-hover] {
-            outline-color: rgba(99, 102, 241, 0.6);
+            outline-width: var(--sve-outline-width, 2px) !important;
+            outline-style: dashed !important;
+            outline-color: var(--sve-focus-color, currentColor) !important;
+            outline-offset: 2px;
         }
         [data-sid-active] {
-            outline: 2px solid rgb(99, 102, 241) !important;
+            outline-width: var(--sve-outline-width, 2px) !important;
+            outline-style: solid !important;
+            outline-color: var(--sve-focus-color, currentColor) !important;
             outline-offset: 2px;
         }
         [data-sid][data-sid-label] {
             position: relative;
         }
-
         [data-sid][data-sid-label]::after {
             content: attr(data-sid-label);
             position: absolute;
             top: 0;
             left: 0;
-            background: rgb(99, 102, 241);
+            background: var(--sve-focus-color, currentColor);
             color: #fff;
             font-size: 10px;
             font-family: sans-serif;
@@ -52,6 +89,8 @@ export function injectStyles(doc) {
 
   doc.head.appendChild(style);
 }
+
+
 
 /**
  * Returns the nearest preceding sibling that is (or contains) a non-text
@@ -115,6 +154,44 @@ export function findTextAfterSetUid(uid, afterSetUid, doc) {
   }
 
   return null;
+}
+
+/**
+ * On every mouse movement: shows dashed outlines on all [data-sid] elements
+ * and marks the innermost hovered one with a solid outline.
+ * Both effects clear after HOVER_CLEAR_DELAY ms of no movement.
+ */
+export function createMouseMoveHandler(win) {
+  let clearTimer = null;
+
+  return function handleMouseMove(event) {
+    win.document.documentElement.classList.add(MOUSE_ACTIVE_CLASS);
+
+    // Track innermost [data-sid] for solid outline
+    const current = win.document.querySelector(`[${INNER_ATTR}]`);
+    const target = event.target.closest(`[${SID_ATTR}]`);
+
+    if (current !== target) {
+      if (current) {
+        current.removeAttribute(INNER_ATTR);
+      }
+
+      if (target) {
+        target.setAttribute(INNER_ATTR, '');
+      }
+    }
+
+    if (clearTimer) {
+      clearTimeout(clearTimer);
+    }
+
+    clearTimer = setTimeout(() => {
+      win.document.documentElement.classList.remove(MOUSE_ACTIVE_CLASS);
+      win.document.querySelectorAll(`[${INNER_ATTR}]`).forEach((el) => {
+        el.removeAttribute(INNER_ATTR);
+      });
+    }, HOVER_CLEAR_DELAY);
+  };
 }
 
 export function createClickHandler(win) {
@@ -226,7 +303,9 @@ export function initBridge(win = window) {
   }
 
   injectStyles(win.document);
+  injectCpVariables(win.document, win);
   win.document.addEventListener('click', createClickHandler(win), true);
+  win.document.addEventListener('mousemove', createMouseMoveHandler(win), true);
   win.document.addEventListener('mouseover', createHoverHandler(win), true);
   win.addEventListener('message', createMessageReceiver(win));
 }
