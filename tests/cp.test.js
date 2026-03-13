@@ -710,3 +710,134 @@ describe('initCp CP→iframe listeners', () => {
     expect(focusCalls.length).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// afterSetUid — Bard text group bidirectional targeting
+// ---------------------------------------------------------------------------
+
+describe('handleFocus with afterSetUid scrolls inside Bard editor', () => {
+  let container;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it('scrolls to the element after the specified Bard set node', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('article-uid');
+
+    set.scrollIntoView = vi.fn();
+
+    const editor = document.createElement('div');
+
+    editor.setAttribute('contenteditable', 'true');
+
+    const para1 = document.createElement('p');
+    const nodeWrapper = document.createElement('div');
+
+    nodeWrapper.setAttribute('data-node-view-wrapper', '');
+
+    const hiddenInput = document.createElement('input');
+
+    hiddenInput.setAttribute('type', 'hidden');
+    hiddenInput.setAttribute('data-visual-id', 'bard-set-uid');
+    nodeWrapper.appendChild(hiddenInput);
+
+    const para2 = document.createElement('p');
+
+    para2.scrollIntoView = vi.fn();
+    editor.appendChild(para1);
+    editor.appendChild(nodeWrapper);
+    editor.appendChild(para2);
+    set.appendChild(editor);
+    container.appendChild(set);
+
+    handleFocus('article-uid', document, 'bard-set-uid');
+
+    vi.advanceTimersByTime(300);
+
+    expect(para2.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
+
+    vi.useRealTimers();
+  });
+
+  it('scrolls the editor to the top when afterSetUid is null (first text group)', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('article-uid');
+
+    set.scrollIntoView = vi.fn();
+
+    const editor = document.createElement('div');
+
+    editor.setAttribute('contenteditable', 'true');
+    editor.scrollIntoView = vi.fn();
+    set.appendChild(editor);
+    container.appendChild(set);
+
+    handleFocus('article-uid', document, null);
+
+    vi.advanceTimersByTime(300);
+
+    expect(editor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+
+    vi.useRealTimers();
+  });
+
+  it('does not attempt Bard scroll when afterSetUid is undefined', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('article-uid');
+
+    set.scrollIntoView = vi.fn();
+
+    const editor = document.createElement('div');
+
+    editor.setAttribute('contenteditable', 'true');
+    editor.scrollIntoView = vi.fn();
+    set.appendChild(editor);
+    container.appendChild(set);
+
+    handleFocus('article-uid', document);
+
+    vi.advanceTimersByTime(300);
+
+    expect(editor.scrollIntoView).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+});
+
+describe('createMessageListener passes afterSetUid to handleFocus', () => {
+  it('forwards afterSetUid from click message', () => {
+    const doc = document.implementation.createHTMLDocument();
+    const listener = createMessageListener(doc);
+
+    // minimal set in the doc
+    const set = doc.createElement('div');
+
+    set.setAttribute('data-replicator-set', '');
+
+    const input = doc.createElement('input');
+
+    input.setAttribute('data-visual-id', 'article-uid');
+    input.value = 'article-uid';
+    set.appendChild(input);
+    set.scrollIntoView = vi.fn();
+    doc.body.appendChild(set);
+
+    // afterSetUid = null means text before first set
+    listener({ data: { source: 'statamic-visual-editor', type: 'click', uid: 'article-uid', afterSetUid: null } });
+
+    // handleFocus was called — set should be highlighted
+    expect(set.classList.contains('sve-highlight')).toBe(true);
+  });
+});
+
+

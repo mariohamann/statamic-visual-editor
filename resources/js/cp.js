@@ -92,7 +92,7 @@ export function highlightSet(setEl, duration = HIGHLIGHT_DURATION) {
   }, duration);
 }
 
-export function handleFocus(uid, doc = document) {
+export function handleFocus(uid, doc = document, afterSetUid = undefined) {
   const setEl = findSetByUid(uid, doc);
 
   if (!setEl) {
@@ -104,6 +104,10 @@ export function handleFocus(uid, doc = document) {
   [...ancestors, setEl].forEach(expandSet);
   setEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   highlightSet(setEl);
+
+  if (afterSetUid !== undefined) {
+    setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
+  }
 }
 
 export function handleHover(uid, doc = document) {
@@ -129,7 +133,7 @@ export function createMessageListener(doc = document) {
     }
 
     if (data.type === 'click') {
-      handleFocus(data.uid, doc);
+      handleFocus(data.uid, doc, data.afterSetUid);
     } else if (data.type === 'hover') {
       handleHover(data.uid, doc);
     }
@@ -165,6 +169,74 @@ function getUidFromSet(setEl) {
   return input ? input.value : null;
 }
 
+/**
+ * When hovering/clicking text inside a Bard contenteditable, returns the
+ * nearest preceding [data-node-view-wrapper] sibling — i.e. the last Bard
+ * set node before the text. Returns null for text before any set.
+ */
+function findPrecedingBardSetNode(el, contentEditable) {
+  if (el === contentEditable) {
+    return null;
+  }
+
+  let node = el;
+
+  while (node.parentElement && node.parentElement !== contentEditable) {
+    node = node.parentElement;
+  }
+
+  if (node.parentElement !== contentEditable) {
+    return null;
+  }
+
+  let prev = node.previousElementSibling;
+
+  while (prev) {
+    if (prev.hasAttribute('data-node-view-wrapper')) {
+      return prev;
+    }
+
+    prev = prev.previousElementSibling;
+  }
+
+  return null;
+}
+
+/**
+ * Scrolls the Bard contenteditable inside containerEl to the text that
+ * follows the set identified by afterSetUid (or to the top when null).
+ */
+function scrollBardToTextAfterSet(afterSetUid, containerEl) {
+  const editor = containerEl.querySelector('[contenteditable="true"]');
+
+  if (!editor) {
+    return;
+  }
+
+  if (afterSetUid === null) {
+    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    return;
+  }
+
+  const input = editor.querySelector(`[data-visual-id="${afterSetUid}"]`);
+
+  if (!input) {
+    return;
+  }
+
+  const nodeWrapper = input.closest('[data-node-view-wrapper]');
+
+  if (!nodeWrapper) {
+    return;
+  }
+
+  (nodeWrapper.nextElementSibling ?? nodeWrapper).scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest',
+  });
+}
+
 export function initCp(win = window) {
   const style = win.document.createElement('style');
   style.id = '__sve-cp-styles';
@@ -192,7 +264,31 @@ export function initCp(win = window) {
 
     const uid = getUidFromSet(set);
 
-    if (!uid || uid === lastCpHoverUid) {
+    if (!uid) {
+      return;
+    }
+
+    // When hovering plain text inside a Bard contenteditable, determine which
+    // text group it belongs to via the preceding set node.
+    const contentEditable = event.target.closest('[contenteditable="true"]');
+
+    if (contentEditable && !event.target.closest('[data-node-view-wrapper]')) {
+      const prevBardSet = findPrecedingBardSetNode(event.target, contentEditable);
+      const afterSetUid =
+        prevBardSet?.querySelector('[data-visual-id]')?.getAttribute('data-visual-id') ?? null;
+      const hoverKey = `${uid}::${afterSetUid}`;
+
+      if (hoverKey === lastCpHoverUid) {
+        return;
+      }
+
+      lastCpHoverUid = hoverKey;
+      sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid, afterSetUid }, win);
+
+      return;
+    }
+
+    if (uid === lastCpHoverUid) {
       return;
     }
 
@@ -215,7 +311,20 @@ export function initCp(win = window) {
       return;
     }
 
-    sendToPreview({ source: 'statamic-visual-editor', type: 'focus', uid }, win);
+    const message = { source: 'statamic-visual-editor', type: 'focus', uid };
+
+    // When clicking plain text inside a Bard contenteditable, include afterSetUid
+    // so the preview can highlight the correct text group.
+    const contentEditable = event.target.closest('[contenteditable="true"]');
+
+    if (contentEditable && !event.target.closest('[data-node-view-wrapper]')) {
+      const prevBardSet = findPrecedingBardSetNode(event.target, contentEditable);
+
+      message.afterSetUid =
+        prevBardSet?.querySelector('[data-visual-id]')?.getAttribute('data-visual-id') ?? null;
+    }
+
+    sendToPreview(message, win);
   };
 
   win.document.addEventListener('mouseover', handleMouseover);

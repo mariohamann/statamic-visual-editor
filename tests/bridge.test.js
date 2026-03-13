@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initBridge, injectStyles, createClickHandler, createHoverHandler, createMessageReceiver } from '../resources/js/bridge.js';
+import { initBridge, injectStyles, createClickHandler, createHoverHandler, createMessageReceiver, findTextAfterSetUid } from '../resources/js/bridge.js';
 
 const STYLES_ID = '__sve-bridge-styles';
 
@@ -416,5 +416,245 @@ describe('createMessageReceiver', () => {
 
     expect(el1.hasAttribute('data-sid-active')).toBe(false);
     expect(el2.hasAttribute('data-sid-active')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// afterSetUid — text group targeting
+// ---------------------------------------------------------------------------
+
+describe('findTextAfterSetUid', () => {
+  let container;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it('returns the first text element when afterSetUid is null', () => {
+    const text = document.createElement('div');
+
+    text.setAttribute('data-sid', 'parent-uid');
+    text.setAttribute('data-sid-label', 'text');
+    container.appendChild(text);
+
+    expect(findTextAfterSetUid('parent-uid', null, document)).toBe(text);
+  });
+
+  it('returns the text element that follows the given set element', () => {
+    const setEl = document.createElement('figure');
+
+    setEl.setAttribute('data-sid', 'set-uid');
+    setEl.setAttribute('data-sid-label', 'pull_quote');
+
+    const text = document.createElement('div');
+
+    text.setAttribute('data-sid', 'parent-uid');
+    text.setAttribute('data-sid-label', 'text');
+
+    container.appendChild(setEl);
+    container.appendChild(text);
+
+    expect(findTextAfterSetUid('parent-uid', 'set-uid', document)).toBe(text);
+  });
+
+  it('bubbles up through wrapper divs when data-sid is on a nested element', () => {
+    // video: <div class="wrapper"><iframe data-sid="video-uid" /></div>
+    const wrapper = document.createElement('div');
+    const iframe = document.createElement('iframe');
+
+    iframe.setAttribute('data-sid', 'video-uid');
+    iframe.setAttribute('data-sid-label', 'video');
+    wrapper.appendChild(iframe);
+
+    const text = document.createElement('div');
+
+    text.setAttribute('data-sid', 'parent-uid');
+    text.setAttribute('data-sid-label', 'text');
+
+    container.appendChild(wrapper);
+    container.appendChild(text);
+
+    expect(findTextAfterSetUid('parent-uid', 'video-uid', document)).toBe(text);
+  });
+
+  it('returns null when afterSetUid does not exist in the document', () => {
+    expect(findTextAfterSetUid('parent-uid', 'nonexistent', document)).toBeNull();
+  });
+});
+
+describe('createClickHandler with text element', () => {
+  let win;
+  let container;
+
+  beforeEach(() => {
+    win = makeFakeWin();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it('includes afterSetUid of the preceding set when clicking a text element', () => {
+    const setEl = document.createElement('figure');
+
+    setEl.setAttribute('data-sid', 'set-uid');
+    setEl.setAttribute('data-sid-label', 'pull_quote');
+
+    const textEl = document.createElement('div');
+
+    textEl.setAttribute('data-sid', 'parent-uid');
+    textEl.setAttribute('data-sid-label', 'text');
+
+    container.appendChild(setEl);
+    container.appendChild(textEl);
+
+    const handler = createClickHandler(win);
+
+    document.addEventListener('click', handler, true);
+    textEl.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    document.removeEventListener('click', handler, true);
+
+    expect(win.top.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'parent-uid', afterSetUid: 'set-uid' }),
+      '*',
+    );
+  });
+
+  it('finds preceding set even when data-sid is on a nested element inside a wrapper', () => {
+    // video: <div><iframe data-sid="video-uid"></div>
+    const wrapper = document.createElement('div');
+    const iframe = document.createElement('iframe');
+
+    iframe.setAttribute('data-sid', 'video-uid');
+    iframe.setAttribute('data-sid-label', 'video');
+    wrapper.appendChild(iframe);
+
+    const textEl = document.createElement('div');
+
+    textEl.setAttribute('data-sid', 'parent-uid');
+    textEl.setAttribute('data-sid-label', 'text');
+
+    container.appendChild(wrapper);
+    container.appendChild(textEl);
+
+    const handler = createClickHandler(win);
+
+    document.addEventListener('click', handler, true);
+    textEl.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    document.removeEventListener('click', handler, true);
+
+    expect(win.top.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'parent-uid', afterSetUid: 'video-uid' }),
+      '*',
+    );
+  });
+
+  it('includes afterSetUid: null when text element has no preceding set', () => {
+    const textEl = document.createElement('div');
+
+    textEl.setAttribute('data-sid', 'parent-uid');
+    textEl.setAttribute('data-sid-label', 'text');
+    container.appendChild(textEl);
+
+    const handler = createClickHandler(win);
+
+    document.addEventListener('click', handler, true);
+    textEl.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    document.removeEventListener('click', handler, true);
+
+    expect(win.top.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'parent-uid', afterSetUid: null }),
+      '*',
+    );
+  });
+
+  it('does not include afterSetUid for non-text elements', () => {
+    const el = document.createElement('figure');
+
+    el.setAttribute('data-sid', 'set-uid');
+    el.setAttribute('data-sid-label', 'pull_quote');
+    container.appendChild(el);
+
+    const handler = createClickHandler(win);
+
+    document.addEventListener('click', handler, true);
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    document.removeEventListener('click', handler, true);
+
+    const call = win.top.postMessage.mock.calls[0][0];
+
+    expect('afterSetUid' in call).toBe(false);
+  });
+});
+
+describe('createMessageReceiver with afterSetUid', () => {
+  let container;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it('hovers the correct text element when afterSetUid is provided', () => {
+    const win = { self: {}, top: {}, document };
+
+    const setEl = document.createElement('figure');
+
+    setEl.setAttribute('data-sid', 'set-uid');
+    setEl.setAttribute('data-sid-label', 'pull_quote');
+
+    const textEl = document.createElement('div');
+
+    textEl.setAttribute('data-sid', 'parent-uid');
+    textEl.setAttribute('data-sid-label', 'text');
+
+    container.appendChild(setEl);
+    container.appendChild(textEl);
+
+    const handler = createMessageReceiver(win);
+
+    handler({
+      data: { source: 'statamic-visual-editor', type: 'hover', uid: 'parent-uid', afterSetUid: 'set-uid' },
+    });
+
+    expect(textEl.hasAttribute('data-sid-hover')).toBe(true);
+  });
+
+  it('focuses the correct text element when afterSetUid is provided', () => {
+    const win = { self: {}, top: {}, document };
+
+    const setEl = document.createElement('figure');
+
+    setEl.setAttribute('data-sid', 'set-uid');
+    setEl.setAttribute('data-sid-label', 'pull_quote');
+
+    const textEl = document.createElement('div');
+
+    textEl.setAttribute('data-sid', 'parent-uid');
+    textEl.setAttribute('data-sid-label', 'text');
+    textEl.scrollIntoView = vi.fn();
+
+    container.appendChild(setEl);
+    container.appendChild(textEl);
+
+    const handler = createMessageReceiver(win);
+
+    handler({
+      data: { source: 'statamic-visual-editor', type: 'focus', uid: 'parent-uid', afterSetUid: 'set-uid' },
+    });
+
+    expect(textEl.hasAttribute('data-sid-active')).toBe(true);
+    expect(textEl.scrollIntoView).toHaveBeenCalled();
   });
 });
