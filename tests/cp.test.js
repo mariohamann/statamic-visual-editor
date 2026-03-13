@@ -5,6 +5,7 @@ import {
   expandSet,
   isSetCollapsed,
   highlightSet,
+  focusBardSet,
   handleFocus,
   handleHover,
   createMessageListener,
@@ -336,6 +337,72 @@ describe('highlightSet', () => {
 });
 
 // ---------------------------------------------------------------------------
+// focusBardSet
+// ---------------------------------------------------------------------------
+
+describe('focusBardSet', () => {
+  let container;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it('adds ProseMirror-selectednode immediately', () => {
+    vi.useFakeTimers();
+
+    const set = makeBardSet('uid');
+
+    container.appendChild(set);
+    focusBardSet(set, 2000);
+
+    expect(set.classList.contains('ProseMirror-selectednode')).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('removes ProseMirror-selectednode after the duration', () => {
+    vi.useFakeTimers();
+
+    const set = makeBardSet('uid');
+
+    container.appendChild(set);
+    focusBardSet(set, 2000);
+    vi.advanceTimersByTime(2000);
+
+    expect(set.classList.contains('ProseMirror-selectednode')).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('keeps ProseMirror-selectednode before the duration elapses', () => {
+    vi.useFakeTimers();
+
+    const set = makeBardSet('uid');
+
+    container.appendChild(set);
+    focusBardSet(set, 2000);
+    vi.advanceTimersByTime(1999);
+
+    expect(set.classList.contains('ProseMirror-selectednode')).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('does not throw when no contenteditable ancestor is present', () => {
+    const set = makeBardSet('uid');
+
+    container.appendChild(set);
+
+    expect(() => focusBardSet(set)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // handleFocus
 // ---------------------------------------------------------------------------
 
@@ -353,6 +420,44 @@ describe('handleFocus', () => {
 
   it('is a no-op for unknown UID', () => {
     expect(() => handleFocus('nonexistent-uid', document)).not.toThrow();
+  });
+
+  it('sets data-sve-active on the focused set', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('focus-uid');
+
+    set.scrollIntoView = vi.fn();
+    container.appendChild(set);
+
+    handleFocus('focus-uid', document);
+
+    expect(set.hasAttribute('data-sve-active')).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('clears data-sve-active from the previous set when focusing a new one', () => {
+    vi.useFakeTimers();
+
+    const first = makeReplicatorSet('first-uid');
+
+    first.scrollIntoView = vi.fn();
+    container.appendChild(first);
+
+    const second = makeReplicatorSet('second-uid');
+
+    second.scrollIntoView = vi.fn();
+    container.appendChild(second);
+
+    handleFocus('first-uid', document);
+    expect(first.hasAttribute('data-sve-active')).toBe(true);
+
+    handleFocus('second-uid', document);
+    expect(first.hasAttribute('data-sve-active')).toBe(false);
+    expect(second.hasAttribute('data-sve-active')).toBe(true);
+
+    vi.useRealTimers();
   });
 
   it('expands and highlights a known collapsed set', () => {
@@ -409,6 +514,38 @@ describe('handleFocus', () => {
 
     vi.useRealTimers();
   });
+
+  it('uses focusBardSet (ProseMirror-selectednode) for bard sets', () => {
+    vi.useFakeTimers();
+
+    const set = makeBardSet('bard-focus-uid');
+
+    set.scrollIntoView = vi.fn();
+    container.appendChild(set);
+
+    handleFocus('bard-focus-uid', document);
+
+    expect(set.classList.contains('ProseMirror-selectednode')).toBe(true);
+    expect(set.classList.contains('sve-highlight')).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('uses highlightSet (sve-highlight) for replicator sets', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('rep-focus-uid');
+
+    set.scrollIntoView = vi.fn();
+    container.appendChild(set);
+
+    handleFocus('rep-focus-uid', document);
+
+    expect(set.classList.contains('sve-highlight')).toBe(true);
+    expect(set.classList.contains('ProseMirror-selectednode')).toBe(false);
+
+    vi.useRealTimers();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -453,6 +590,35 @@ describe('handleHover', () => {
     handleHover('second-uid', document);
     expect(first.hasAttribute('data-sve-hover')).toBe(false);
     expect(second.hasAttribute('data-sve-hover')).toBe(true);
+  });
+
+  it('skips applying hover outline to the currently active set', () => {
+    const set = makeReplicatorSet('active-uid');
+
+    set.setAttribute('data-sve-active', '');
+    container.appendChild(set);
+
+    handleHover('active-uid', document);
+
+    expect(set.hasAttribute('data-sve-hover')).toBe(false);
+  });
+
+  it('clears stale hover even when new hover targets the active element', () => {
+    const active = makeReplicatorSet('active-uid');
+
+    active.setAttribute('data-sve-active', '');
+
+    const stale = makeReplicatorSet('stale-uid');
+
+    stale.setAttribute('data-sve-hover', '');
+    container.appendChild(active);
+    container.appendChild(stale);
+
+    handleHover('active-uid', document);
+
+    // Stale hover must be cleared even though the target is skipped.
+    expect(stale.hasAttribute('data-sve-hover')).toBe(false);
+    expect(active.hasAttribute('data-sve-hover')).toBe(false);
   });
 });
 
@@ -762,7 +928,7 @@ describe('handleFocus with afterSetUid scrolls inside Bard editor', () => {
 
     vi.advanceTimersByTime(300);
 
-    expect(para2.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
+    expect(para2.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
 
     vi.useRealTimers();
   });

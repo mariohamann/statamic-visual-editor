@@ -13,6 +13,7 @@ export const SELECTORS = {
 };
 
 const HIGHLIGHT_CLASS = 'sve-highlight';
+const ACTIVE_ATTR = 'data-sve-active';
 const HIGHLIGHT_DURATION = 2000;
 
 export function findSetByUid(uid, doc = document) {
@@ -92,18 +93,42 @@ export function highlightSet(setEl, duration = HIGHLIGHT_DURATION) {
   }, duration);
 }
 
+/**
+ * For Bard sets, programmatically focus the ProseMirror editor and mark the
+ * node as selected by adding the `ProseMirror-selectednode` class — which
+ * Statamic/TipTap already styles correctly. The class is removed after
+ * `duration` ms so it doesn't linger after the user interacts with the editor.
+ */
+export function focusBardSet(setEl, duration = HIGHLIGHT_DURATION) {
+  setEl.classList.add('ProseMirror-selectednode');
+  setTimeout(() => {
+    setEl.classList.remove('ProseMirror-selectednode');
+  }, duration);
+}
+
 export function handleFocus(uid, doc = document, afterSetUid = undefined) {
+  // Clear persistent active state from whichever element previously held it.
+  doc.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => el.removeAttribute(ACTIVE_ATTR));
+
   const setEl = findSetByUid(uid, doc);
 
   if (!setEl) {
     return;
   }
 
+  // Mark as active — persists until the next focus event.
+  setEl.setAttribute(ACTIVE_ATTR, '');
+
   const ancestors = collectAncestorSets(setEl);
 
   [...ancestors, setEl].forEach(expandSet);
-  setEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  highlightSet(setEl);
+  setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  if (setEl.hasAttribute('data-node-view-wrapper')) {
+    focusBardSet(setEl);
+  } else {
+    highlightSet(setEl);
+  }
 
   if (afterSetUid !== undefined) {
     setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
@@ -117,7 +142,8 @@ export function handleHover(uid, doc = document) {
 
   const setEl = findSetByUid(uid, doc);
 
-  if (!setEl) {
+  // Don't apply hover outline when the element is already the active focused one.
+  if (!setEl || setEl.hasAttribute(ACTIVE_ATTR)) {
     return;
   }
 
@@ -141,17 +167,20 @@ export function createMessageListener(doc = document) {
 }
 
 const CP_STYLES = `
-[data-sve-hover] {
-  outline: 2px dashed rgba(99, 102, 241, 0.4);
+[data-sve-active] {
+  outline: 2px solid var(--theme-color-blue-500, #3b82f6) !important;
+  outline-offset: 2px;
+}
+[data-sve-hover]:not([data-sve-active]) {
+  outline: 2px dashed var(--theme-color-blue-500, #3b82f6) !important;
+  outline-offset: 2px;
 }
 .sve-highlight {
-  outline: 2px solid rgb(99, 102, 241) !important;
-  outline-offset: 2px;
   animation: sve-highlight-pulse 0.4s ease-out;
 }
 @keyframes sve-highlight-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
-  100% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  100% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
 }
 `;
 
@@ -233,7 +262,7 @@ function scrollBardToTextAfterSet(afterSetUid, containerEl) {
 
   (nodeWrapper.nextElementSibling ?? nodeWrapper).scrollIntoView({
     behavior: 'smooth',
-    block: 'nearest',
+    block: 'start',
   });
 }
 
@@ -265,6 +294,11 @@ export function initCp(win = window) {
     const uid = getUidFromSet(set);
 
     if (!uid) {
+      return;
+    }
+
+    // Don't send hover for the element that is currently focused/active in the CP.
+    if (set.hasAttribute(ACTIVE_ATTR)) {
       return;
     }
 

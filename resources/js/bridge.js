@@ -227,17 +227,30 @@ export function createClickHandler(win) {
 }
 
 export function createHoverHandler(win) {
+  let lastHoveredUid = null;
+
   return function handleHover(event) {
     const target = event.target.closest(`[${SID_ATTR}]`);
+    const uid = target ? target.getAttribute(SID_ATTR) : null;
 
-    if (!target) {
+    // Deduplicate: skip when still over the same element (or still off any element).
+    if (uid === lastHoveredUid) {
+      return;
+    }
+
+    lastHoveredUid = uid;
+
+    if (!uid) {
+      // Mouse left all annotated elements — tell the CP to clear its hover state.
+      win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, '*');
+
       return;
     }
 
     const message = {
       source: 'statamic-visual-editor',
       type: 'hover',
-      uid: target.getAttribute(SID_ATTR),
+      uid,
     };
 
     if (target.getAttribute('data-sid-label') === 'text') {
@@ -290,7 +303,7 @@ export function createMessageReceiver(win) {
 
         if (el) {
           el.setAttribute(ACTIVE_ATTR, '');
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
     }

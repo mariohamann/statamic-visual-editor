@@ -483,7 +483,50 @@ describe('createHoverHandler', () => {
     el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.removeEventListener('mouseover', handler, true);
 
+    // First move is from null → null: no change, no message.
     expect(win.top.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('sends null hover when moving from an annotated to a non-annotated element', () => {
+    const annotated = document.createElement('div');
+
+    annotated.setAttribute('data-sid', 'some-uid');
+
+    const plain = document.createElement('div');
+
+    container.appendChild(annotated);
+    container.appendChild(plain);
+
+    const handler = createHoverHandler(win);
+
+    document.addEventListener('mouseover', handler, true);
+    annotated.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    win.top.postMessage.mockClear();
+    plain.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    document.removeEventListener('mouseover', handler, true);
+
+    expect(win.top.postMessage).toHaveBeenCalledWith(
+      { source: 'statamic-visual-editor', type: 'hover', uid: null },
+      '*',
+    );
+  });
+
+  it('does not send duplicate hover messages for the same UID', () => {
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'dup-uid');
+    container.appendChild(el);
+
+    const handler = createHoverHandler(win);
+
+    document.addEventListener('mouseover', handler, true);
+    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    document.removeEventListener('mouseover', handler, true);
+
+    const hoverCalls = win.top.postMessage.mock.calls.filter((c) => c[0]?.uid === 'dup-uid');
+
+    expect(hoverCalls.length).toBe(1);
   });
 });
 
