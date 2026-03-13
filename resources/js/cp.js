@@ -173,13 +173,11 @@ export function createMessageListener(doc = document) {
 }
 
 const CP_STYLES = `
-[data-sve-active] {
+[data-sve-active]:not([contenteditable="false"]), [data-sve-active][contenteditable="false"] > * {
   outline: 2px solid var(--theme-color-blue-500, #3b82f6) !important;
-  outline-offset: 2px;
 }
 [data-sve-hover]:not([data-sve-active]) {
   outline: 2px dashed var(--theme-color-blue-500, #3b82f6) !important;
-  outline-offset: 2px;
 }
 .sve-highlight {
   animation: sve-highlight-pulse 0.4s ease-out;
