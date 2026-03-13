@@ -978,6 +978,66 @@ describe('handleFocus with afterSetUid scrolls inside Bard editor', () => {
 
     vi.useRealTimers();
   });
+
+  it('does not scroll the outer set when afterSetUid is provided (avoids double scroll)', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('article-uid');
+
+    set.scrollIntoView = vi.fn();
+
+    const editor = document.createElement('div');
+
+    editor.setAttribute('contenteditable', 'true');
+
+    const nodeWrapper = document.createElement('div');
+
+    nodeWrapper.setAttribute('data-node-view-wrapper', '');
+
+    const hiddenInput = document.createElement('input');
+
+    hiddenInput.setAttribute('type', 'hidden');
+    hiddenInput.setAttribute('data-visual-id', 'bard-set-uid');
+    hiddenInput.value = 'bard-set-uid';
+    nodeWrapper.appendChild(hiddenInput);
+
+    const para = document.createElement('p');
+
+    para.scrollIntoView = vi.fn();
+    editor.appendChild(nodeWrapper);
+    editor.appendChild(para);
+    set.appendChild(editor);
+    container.appendChild(set);
+
+    handleFocus('article-uid', document, 'bard-set-uid');
+
+    // The outer set must NOT be scrolled — only the text target gets scrolled later.
+    expect(set.scrollIntoView).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it('does not scroll the outer set when afterSetUid is null (first text group)', () => {
+    vi.useFakeTimers();
+
+    const set = makeReplicatorSet('article-uid');
+
+    set.scrollIntoView = vi.fn();
+
+    const editor = document.createElement('div');
+
+    editor.setAttribute('contenteditable', 'true');
+    editor.scrollIntoView = vi.fn();
+    set.appendChild(editor);
+    container.appendChild(set);
+
+    handleFocus('article-uid', document, null);
+
+    // Outer set scroll is suppressed; editor scroll happens via scrollBardToTextAfterSet.
+    expect(set.scrollIntoView).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
 });
 
 describe('createMessageListener passes afterSetUid to handleFocus', () => {

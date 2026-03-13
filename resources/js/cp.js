@@ -122,7 +122,13 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
   const ancestors = collectAncestorSets(setEl);
 
   [...ancestors, setEl].forEach(expandSet);
-  setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // When a precise text target (afterSetUid) is provided, skip scrolling to
+  // the outer set — scrollBardToTextAfterSet will scroll directly to the text,
+  // eliminating the two-step "jump to top of Bard then jump to text" behaviour.
+  if (afterSetUid === undefined) {
+    setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   if (setEl.hasAttribute('data-node-view-wrapper')) {
     focusBardSet(setEl);
@@ -232,6 +238,52 @@ function findPrecedingBardSetNode(el, contentEditable) {
 }
 
 /**
+ * Returns the height of the nearest .bard-fixed-toolbar that sits above
+ * targetEl, by walking up from targetEl to the closest .bard-fieldtype and
+ * then finding its direct .bard-fixed-toolbar child.
+ *
+ * Using targetEl (not an outer container) ensures we find the toolbar that
+ * actually overlaps the element we're about to scroll into view.
+ */
+function getToolbarOffset(targetEl) {
+  const bardFieldtype = targetEl.closest('.bard-fieldtype');
+
+  if (!bardFieldtype) {
+    return 0;
+  }
+
+  const toolbar = bardFieldtype.querySelector('.bard-fixed-toolbar');
+
+  if (!toolbar) {
+    return 0;
+  }
+
+  const marginBlockEnd = parseFloat(getComputedStyle(toolbar).marginBlockEnd) || 0;
+
+  return toolbar.offsetHeight + marginBlockEnd;
+}
+
+/**
+ * Scrolls targetEl into view, adding a top margin equal to the nearest Bard
+ * fixed toolbar height so the element is not hidden behind the sticky toolbar.
+ */
+function scrollToWithBardOffset(targetEl) {
+  const offset = getToolbarOffset(targetEl);
+
+  if (offset > 0) {
+    const original = targetEl.style.scrollMarginTop;
+
+    targetEl.style.scrollMarginTop = `${offset + 4}px`;
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => {
+      targetEl.style.scrollMarginTop = original;
+    });
+  } else {
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/**
  * Scrolls the Bard contenteditable inside containerEl to the text that
  * follows the set identified by afterSetUid (or to the top when null).
  */
@@ -243,7 +295,7 @@ function scrollBardToTextAfterSet(afterSetUid, containerEl) {
   }
 
   if (afterSetUid === null) {
-    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToWithBardOffset(editor);
 
     return;
   }
@@ -260,10 +312,7 @@ function scrollBardToTextAfterSet(afterSetUid, containerEl) {
     return;
   }
 
-  (nodeWrapper.nextElementSibling ?? nodeWrapper).scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  });
+  scrollToWithBardOffset(nodeWrapper.nextElementSibling ?? nodeWrapper);
 }
 
 export function initCp(win = window) {
