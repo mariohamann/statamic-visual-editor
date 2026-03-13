@@ -668,17 +668,14 @@ describe('initCp CP→iframe listeners', () => {
     expect(hoverCalls.length).toBe(1);
   });
 
-  it('sends focus message to iframe when a set header is clicked', () => {
+  it('sends focus message to iframe when clicking anywhere inside a set', () => {
     const set = makeReplicatorSet('click-uid');
-    const header = document.createElement('header');
-    const btn = document.createElement('button');
+    const inner = document.createElement('div');
 
-    btn.type = 'button';
-    header.appendChild(btn);
-    set.appendChild(header);
+    set.appendChild(inner);
     container.appendChild(set);
 
-    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    inner.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(postMessage).toHaveBeenCalledWith(
       { source: 'statamic-visual-editor', type: 'focus', uid: 'click-uid' },
@@ -686,7 +683,22 @@ describe('initCp CP→iframe listeners', () => {
     );
   });
 
-  it('does not send focus message when clicking outside a set header', () => {
+  it('sends focus for innermost set when nested sets are clicked', () => {
+    const outer = makeReplicatorSet('outer-uid');
+    const inner = makeReplicatorSet('inner-uid');
+
+    outer.appendChild(inner);
+    container.appendChild(outer);
+
+    inner.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const focusCalls = postMessage.mock.calls.filter((c) => c[0]?.type === 'focus');
+
+    expect(focusCalls.length).toBe(1);
+    expect(focusCalls[0][0].uid).toBe('inner-uid');
+  });
+
+  it('does not send focus message when clicking outside any set', () => {
     const other = document.createElement('div');
 
     container.appendChild(other);

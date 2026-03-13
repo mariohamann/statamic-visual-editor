@@ -200,15 +200,10 @@ export function initCp(win = window) {
     sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid }, win);
   };
 
-  // CP → iframe: clicking a set header focuses the corresponding element in the preview.
+  // CP → iframe: clicking anywhere inside a set focuses the corresponding element in the preview.
+  // Uses closest() to get the innermost set, so nested replicators resolve correctly.
   const handleClick = (event) => {
-    const header = event.target.closest(`${SELECTORS.replicatorSet} header, ${SELECTORS.bardSet} header`);
-
-    if (!header) {
-      return;
-    }
-
-    const set = header.closest(SELECTORS.anySet);
+    const set = event.target.closest(SELECTORS.anySet);
 
     if (!set) {
       return;
