@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initBridge, injectStyles, createClickHandler, createHoverHandler } from '../resources/js/bridge.js';
+import { initBridge, injectStyles, createClickHandler, createHoverHandler, createMessageReceiver } from '../resources/js/bridge.js';
 
 const STYLES_ID = '__sve-bridge-styles';
 
 function makeFakeWin(doc = document) {
   const top = { postMessage: vi.fn() };
 
-  return { self: {}, top, document: doc };
+  return { self: {}, top, document: doc, addEventListener: vi.fn() };
 }
 
 function makeTopWin(doc = document) {
@@ -92,16 +92,17 @@ describe('initBridge', () => {
     expect(document.getElementById(STYLES_ID)).not.toBeNull();
   });
 
-  it('attaches click and mouseover listeners when inside an iframe', () => {
+  it('attaches click, mouseover, and message listeners when inside an iframe', () => {
     const win = makeFakeWin();
     const spy = vi.spyOn(document, 'addEventListener');
 
     initBridge(win);
 
-    const types = spy.mock.calls.map((call) => call[0]);
+    const docTypes = spy.mock.calls.map((call) => call[0]);
 
-    expect(types).toContain('click');
-    expect(types).toContain('mouseover');
+    expect(docTypes).toContain('click');
+    expect(docTypes).toContain('mouseover');
+    expect(win.addEventListener).toHaveBeenCalledWith('message', expect.any(Function));
 
     spy.mockRestore();
   });
@@ -293,5 +294,127 @@ describe('createHoverHandler', () => {
     document.removeEventListener('mouseover', handler, true);
 
     expect(win.top.postMessage).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createMessageReceiver
+// ---------------------------------------------------------------------------
+
+describe('createMessageReceiver', () => {
+  let container;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  function makeFakeWinWithDoc() {
+    return { self: {}, top: {}, document };
+  }
+
+  it('ignores messages with wrong source', () => {
+    const win = makeFakeWinWithDoc();
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    container.appendChild(el);
+
+    const handler = createMessageReceiver(win);
+
+    handler({ data: { source: 'other', type: 'hover', uid: 'uid-1' } });
+
+    expect(el.hasAttribute('data-sid-hover')).toBe(false);
+  });
+
+  it('sets data-sid-hover on the matching element for hover type', () => {
+    const win = makeFakeWinWithDoc();
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    container.appendChild(el);
+
+    const handler = createMessageReceiver(win);
+
+    handler({ data: { source: 'statamic-visual-editor', type: 'hover', uid: 'uid-1' } });
+
+    expect(el.hasAttribute('data-sid-hover')).toBe(true);
+  });
+
+  it('clears previous data-sid-hover when hovering a new element', () => {
+    const win = makeFakeWinWithDoc();
+    const el1 = document.createElement('div');
+
+    el1.setAttribute('data-sid', 'uid-1');
+    el1.setAttribute('data-sid-hover', '');
+
+    const el2 = document.createElement('div');
+
+    el2.setAttribute('data-sid', 'uid-2');
+    container.appendChild(el1);
+    container.appendChild(el2);
+
+    const handler = createMessageReceiver(win);
+
+    handler({ data: { source: 'statamic-visual-editor', type: 'hover', uid: 'uid-2' } });
+
+    expect(el1.hasAttribute('data-sid-hover')).toBe(false);
+    expect(el2.hasAttribute('data-sid-hover')).toBe(true);
+  });
+
+  it('clears all data-sid-hover when uid is null', () => {
+    const win = makeFakeWinWithDoc();
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    el.setAttribute('data-sid-hover', '');
+    container.appendChild(el);
+
+    const handler = createMessageReceiver(win);
+
+    handler({ data: { source: 'statamic-visual-editor', type: 'hover', uid: null } });
+
+    expect(el.hasAttribute('data-sid-hover')).toBe(false);
+  });
+
+  it('sets data-sid-active on the matching element for focus type', () => {
+    const win = makeFakeWinWithDoc();
+    const el = document.createElement('div');
+
+    el.setAttribute('data-sid', 'uid-1');
+    el.scrollIntoView = vi.fn();
+    container.appendChild(el);
+
+    const handler = createMessageReceiver(win);
+
+    handler({ data: { source: 'statamic-visual-editor', type: 'focus', uid: 'uid-1' } });
+
+    expect(el.hasAttribute('data-sid-active')).toBe(true);
+  });
+
+  it('clears previous data-sid-active when focusing a new element', () => {
+    const win = makeFakeWinWithDoc();
+    const el1 = document.createElement('div');
+
+    el1.setAttribute('data-sid', 'uid-1');
+    el1.setAttribute('data-sid-active', '');
+
+    const el2 = document.createElement('div');
+
+    el2.setAttribute('data-sid', 'uid-2');
+    el2.scrollIntoView = vi.fn();
+    container.appendChild(el1);
+    container.appendChild(el2);
+
+    const handler = createMessageReceiver(win);
+
+    handler({ data: { source: 'statamic-visual-editor', type: 'focus', uid: 'uid-2' } });
+
+    expect(el1.hasAttribute('data-sid-active')).toBe(false);
+    expect(el2.hasAttribute('data-sid-active')).toBe(true);
   });
 });

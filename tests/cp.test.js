@@ -8,6 +8,8 @@ import {
   handleFocus,
   handleHover,
   createMessageListener,
+  sendToPreview,
+  initCp,
 } from '../resources/js/cp.js';
 
 // ---------------------------------------------------------------------------
@@ -536,5 +538,163 @@ describe('createMessageListener', () => {
 
     expect(set.classList.contains('sve-highlight')).toBe(false);
     expect(set.hasAttribute('data-sve-hover')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sendToPreview
+// ---------------------------------------------------------------------------
+
+describe('sendToPreview', () => {
+  let container;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  it('posts a message to the iframe contentWindow', () => {
+    const postMessage = vi.fn();
+    const iframe = document.createElement('iframe');
+
+    iframe.id = 'live-preview-iframe';
+    Object.defineProperty(iframe, 'contentWindow', { get: () => ({ postMessage }) });
+    container.appendChild(iframe);
+
+    const fakeWin = { document };
+
+    sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid: 'uid-1' }, fakeWin);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      { source: 'statamic-visual-editor', type: 'hover', uid: 'uid-1' },
+      '*',
+    );
+  });
+
+  it('is a no-op when no iframe is present', () => {
+    const fakeWin = { document };
+
+    expect(() => {
+      sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid: 'uid-1' }, fakeWin);
+    }).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// initCp — CP→iframe listeners
+// ---------------------------------------------------------------------------
+
+describe('initCp CP→iframe listeners', () => {
+  let container;
+  let postMessage;
+  let iframe;
+  let fakeWin;
+  let messageListeners;
+  let cleanup;
+
+  beforeEach(() => {
+    postMessage = vi.fn();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+
+    iframe = document.createElement('iframe');
+    iframe.id = 'live-preview-iframe';
+    Object.defineProperty(iframe, 'contentWindow', { get: () => ({ postMessage }) });
+    container.appendChild(iframe);
+
+    messageListeners = [];
+
+    fakeWin = {
+      document,
+      addEventListener: (type, handler) => {
+        messageListeners.push({ type, handler });
+      },
+    };
+
+    cleanup = initCp(fakeWin);
+  });
+
+  afterEach(() => {
+    cleanup?.();
+    document.getElementById('__sve-cp-styles')?.remove();
+    container.remove();
+  });
+
+  it('sends hover message to iframe when mouse enters a set', () => {
+    const set = makeReplicatorSet('hover-uid');
+
+    container.appendChild(set);
+
+    set.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+    expect(postMessage).toHaveBeenCalledWith(
+      { source: 'statamic-visual-editor', type: 'hover', uid: 'hover-uid' },
+      '*',
+    );
+  });
+
+  it('sends hover with null when mouse moves outside all sets', () => {
+    const set = makeReplicatorSet('hover-uid');
+
+    container.appendChild(set);
+
+    // Enter set
+    set.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    postMessage.mockClear();
+
+    // Leave to a non-set element
+    container.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+    expect(postMessage).toHaveBeenCalledWith(
+      { source: 'statamic-visual-editor', type: 'hover', uid: null },
+      '*',
+    );
+  });
+
+  it('does not send duplicate hover messages for the same set', () => {
+    const set = makeReplicatorSet('hover-uid');
+
+    container.appendChild(set);
+
+    set.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    set.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+    const hoverCalls = postMessage.mock.calls.filter((c) => c[0]?.type === 'hover' && c[0]?.uid !== null);
+
+    expect(hoverCalls.length).toBe(1);
+  });
+
+  it('sends focus message to iframe when a set header is clicked', () => {
+    const set = makeReplicatorSet('click-uid');
+    const header = document.createElement('header');
+    const btn = document.createElement('button');
+
+    btn.type = 'button';
+    header.appendChild(btn);
+    set.appendChild(header);
+    container.appendChild(set);
+
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(postMessage).toHaveBeenCalledWith(
+      { source: 'statamic-visual-editor', type: 'focus', uid: 'click-uid' },
+      '*',
+    );
+  });
+
+  it('does not send focus message when clicking outside a set header', () => {
+    const other = document.createElement('div');
+
+    container.appendChild(other);
+
+    other.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const focusCalls = postMessage.mock.calls.filter((c) => c[0]?.type === 'focus');
+
+    expect(focusCalls.length).toBe(0);
   });
 });

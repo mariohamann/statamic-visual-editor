@@ -151,6 +151,20 @@ const CP_STYLES = `
 }
 `;
 
+export function sendToPreview(message, win) {
+  const iframe = win.document.getElementById('live-preview-iframe');
+
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage(message, '*');
+  }
+}
+
+function getUidFromSet(setEl) {
+  const input = setEl.querySelector(SELECTORS.visualIdInput);
+
+  return input ? input.value : null;
+}
+
 export function initCp(win = window) {
   const style = win.document.createElement('style');
   style.id = '__sve-cp-styles';
@@ -160,4 +174,60 @@ export function initCp(win = window) {
   const listener = createMessageListener(win.document);
 
   win.addEventListener('message', listener);
+
+  // CP → iframe: hovering a set highlights the corresponding element in the preview.
+  let lastCpHoverUid = null;
+
+  const handleMouseover = (event) => {
+    const set = event.target.closest(SELECTORS.anySet);
+
+    if (!set) {
+      if (lastCpHoverUid !== null) {
+        lastCpHoverUid = null;
+        sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid: null }, win);
+      }
+
+      return;
+    }
+
+    const uid = getUidFromSet(set);
+
+    if (!uid || uid === lastCpHoverUid) {
+      return;
+    }
+
+    lastCpHoverUid = uid;
+    sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid }, win);
+  };
+
+  // CP → iframe: clicking a set header focuses the corresponding element in the preview.
+  const handleClick = (event) => {
+    const header = event.target.closest(`${SELECTORS.replicatorSet} header, ${SELECTORS.bardSet} header`);
+
+    if (!header) {
+      return;
+    }
+
+    const set = header.closest(SELECTORS.anySet);
+
+    if (!set) {
+      return;
+    }
+
+    const uid = getUidFromSet(set);
+
+    if (!uid) {
+      return;
+    }
+
+    sendToPreview({ source: 'statamic-visual-editor', type: 'focus', uid }, win);
+  };
+
+  win.document.addEventListener('mouseover', handleMouseover);
+  win.document.addEventListener('click', handleClick);
+
+  return () => {
+    win.document.removeEventListener('mouseover', handleMouseover);
+    win.document.removeEventListener('click', handleClick);
+  };
 }

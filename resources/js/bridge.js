@@ -2,6 +2,7 @@
 // Only activates when running inside an iframe (window.self !== window.top).
 
 const ACTIVE_ATTR = 'data-sid-active';
+const HOVER_ATTR = 'data-sid-hover';
 const SID_ATTR = 'data-sid';
 const STYLES_ID = '__sve-bridge-styles';
 
@@ -16,14 +17,17 @@ export function injectStyles(doc) {
   style.textContent = `
         [data-sid] {
             cursor: pointer;
-            outline: 2px dashed rgba(99, 102, 241, 0.4);
+            outline: 2px dashed transparent;
             outline-offset: 2px;
+            transition: outline-color 0.15s ease;
         }
-        [data-sid]:hover {
-            outline: 2px solid rgba(99, 102, 241, 0.8);
+        [data-sid]:hover,
+        [data-sid-hover] {
+            outline-color: rgba(99, 102, 241, 0.6);
         }
         [data-sid-active] {
             outline: 2px solid rgb(99, 102, 241) !important;
+            outline-offset: 2px;
         }
         [data-sid][data-sid-label] {
             position: relative;
@@ -94,6 +98,47 @@ export function createHoverHandler(win) {
   };
 }
 
+export function createMessageReceiver(win) {
+  return function handleMessage(event) {
+    const { data } = event;
+
+    if (!data || data.source !== 'statamic-visual-editor') {
+      return;
+    }
+
+    if (data.type === 'hover') {
+      win.document.querySelectorAll(`[${HOVER_ATTR}]`).forEach((el) => {
+        el.removeAttribute(HOVER_ATTR);
+      });
+
+      if (data.uid) {
+        const el = win.document.querySelector(`[${SID_ATTR}="${data.uid}"]`);
+
+        if (el) {
+          el.setAttribute(HOVER_ATTR, '');
+        }
+      }
+
+      return;
+    }
+
+    if (data.type === 'focus') {
+      win.document.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => {
+        el.removeAttribute(ACTIVE_ATTR);
+      });
+
+      if (data.uid) {
+        const el = win.document.querySelector(`[${SID_ATTR}="${data.uid}"]`);
+
+        if (el) {
+          el.setAttribute(ACTIVE_ATTR, '');
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+  };
+}
+
 export function initBridge(win = window) {
   if (win.self === win.top) {
     return;
@@ -102,6 +147,7 @@ export function initBridge(win = window) {
   injectStyles(win.document);
   win.document.addEventListener('click', createClickHandler(win), true);
   win.document.addEventListener('mouseover', createHoverHandler(win), true);
+  win.addEventListener('message', createMessageReceiver(win));
 }
 
 initBridge();
