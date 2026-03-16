@@ -25,7 +25,7 @@ class VisualEdit extends Tags
       return '';
     }
 
-    return $this->buildAttr((string) $uuid, $this->resolveLabel());
+    return $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType());
   }
 
   /**
@@ -46,7 +46,7 @@ class VisualEdit extends Tags
       return $content;
     }
 
-    return '<div ' . $this->buildAttr((string) $uuid, $this->resolveLabel()) . '>' . $content . '</div>';
+    return '<div ' . $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType()) . '>' . $content . '</div>';
   }
 
   private function resolveLabel(): string
@@ -62,12 +62,21 @@ class VisualEdit extends Tags
     return $type ? Str::headline($type) : '';
   }
 
-  private function buildAttr(string $uuid, string $label): string
+  private function resolveType(): string
+  {
+    return (string) $this->context->get('type', '');
+  }
+
+  private function buildAttr(string $uuid, string $label, string $type = ''): string
   {
     $attr = 'data-sid="' . e($uuid) . '"';
 
     if ($label !== '') {
       $attr .= ' data-sid-label="' . e($label) . '"';
+    }
+
+    if ($type !== '') {
+      $attr .= ' data-sid-type="' . e($type) . '"';
     }
 
     return $attr;

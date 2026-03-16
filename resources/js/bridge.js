@@ -110,12 +110,12 @@ function findPrecedingSetSibling(el) {
   let prev = el.previousElementSibling;
 
   while (prev) {
-    if (prev.hasAttribute(SID_ATTR) && prev.getAttribute('data-sid-label') !== 'text') {
+    if (prev.hasAttribute(SID_ATTR) && prev.getAttribute('data-sid-type') !== 'text') {
       return prev;
     }
 
     // data-sid might live on a descendant inside an un-annotated wrapper (e.g. video)
-    const inner = prev.querySelector(`[${SID_ATTR}]:not([data-sid-label="text"])`);
+    const inner = prev.querySelector(`[${SID_ATTR}]:not([data-sid-type="text"])`);
 
     if (inner) {
       return inner;
@@ -133,7 +133,7 @@ function findPrecedingSetSibling(el) {
  */
 export function findTextAfterSetUid(uid, afterSetUid, doc) {
   if (afterSetUid === null) {
-    return doc.querySelector(`[${SID_ATTR}="${uid}"][data-sid-label="text"]`);
+    return doc.querySelector(`[${SID_ATTR}="${uid}"][data-sid-type="text"]`);
   }
 
   const setEl = doc.querySelector(`[${SID_ATTR}="${afterSetUid}"]`);
@@ -154,7 +154,7 @@ export function findTextAfterSetUid(uid, afterSetUid, doc) {
   let next = scope.nextElementSibling;
 
   while (next) {
-    if (next.hasAttribute(SID_ATTR) && next.getAttribute('data-sid-label') === 'text') {
+    if (next.hasAttribute(SID_ATTR) && next.getAttribute('data-sid-type') === 'text') {
       return next;
     }
 
@@ -224,7 +224,7 @@ export function createClickHandler(win) {
       uid: target.getAttribute(SID_ATTR),
     };
 
-    if (target.getAttribute('data-sid-label') === 'text') {
+    if (target.getAttribute('data-sid-type') === 'text') {
       const prevSet = findPrecedingSetSibling(target);
 
       message.afterSetUid = prevSet ? prevSet.getAttribute(SID_ATTR) : null;
@@ -261,7 +261,7 @@ export function createHoverHandler(win) {
       uid,
     };
 
-    if (target.getAttribute('data-sid-label') === 'text') {
+    if (target.getAttribute('data-sid-type') === 'text') {
       const prevSet = findPrecedingSetSibling(target);
 
       message.afterSetUid = prevSet ? prevSet.getAttribute(SID_ATTR) : null;

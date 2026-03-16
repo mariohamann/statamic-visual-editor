@@ -61,7 +61,18 @@ class VisualEditTest extends TestCase
       livePreview: true,
     );
 
-    $this->assertSame('data-sid="abc-123" data-sid-label="Text Block"', $tag->attr());
+    $this->assertSame('data-sid="abc-123" data-sid-label="Text Block" data-sid-type="text_block"', $tag->attr());
+  }
+
+  public function test_attr_includes_raw_type_as_data_sid_type(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => 'text'],
+      livePreview: true,
+    );
+
+    $this->assertStringContainsString('data-sid-type="text"', $tag->attr());
+    $this->assertStringContainsString('data-sid-label="Text"', $tag->attr());
   }
 
   public function test_attr_explicit_id_param_overrides_context(): void
@@ -84,7 +95,8 @@ class VisualEditTest extends TestCase
     );
 
     $this->assertStringContainsString('data-sid-label="explicit_label"', $tag->attr());
-    $this->assertStringNotContainsString('context_type', $tag->attr());
+    $this->assertStringNotContainsString('data-sid-label="context_type"', $tag->attr());
+    $this->assertStringNotContainsString('data-sid-label="Context Type"', $tag->attr());
   }
 
   public function test_attr_omits_label_when_no_type_in_context(): void
@@ -225,6 +237,13 @@ class VisualEditTest extends TestCase
     Request::macro('isLivePreview', fn() => true);
 
     $this->assertSame('data-sid="abc-123" data-sid-label="text_block"', visual_edit('abc-123', 'text_block'));
+  }
+
+  public function test_blade_helper_includes_type_when_provided(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
+
+    $this->assertSame('data-sid="abc-123" data-sid-label="Text" data-sid-type="text"', visual_edit('abc-123', 'Text', 'text'));
   }
 
   public function test_blade_helper_omits_label_when_not_provided(): void

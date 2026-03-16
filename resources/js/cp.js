@@ -82,7 +82,10 @@ export function expandSet(setEl) {
   const toggle = setEl.querySelector(SELECTORS.headerToggle);
 
   if (toggle) {
-    toggle.click();
+    // Use a non-bubbling click so Vue's @click handler on the button fires,
+    // but the document-level handleClick listener (which sends a focus message
+    // to the iframe) does NOT fire for this programmatic expand action.
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true }));
   }
 }
 
