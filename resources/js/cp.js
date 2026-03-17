@@ -199,23 +199,38 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
   const applyFocus = () => {
     const ancestors = collectAncestorSets(setEl);
 
+    // Check before expanding so we know whether to defer the scroll.
+    const anyCollapsed = [...ancestors, setEl].some(isSetCollapsed);
+
     [...ancestors, setEl].forEach(expandSet);
 
-    // When a precise text target (afterSetUid) is provided, skip scrolling to
-    // the outer set — scrollBardToTextAfterSet will scroll directly to the text,
-    // eliminating the two-step "jump to top of Bard then jump to text" behaviour.
-    if (afterSetUid === undefined) {
-      setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    const doScrollAndHighlight = () => {
+      // When a precise text target (afterSetUid) is provided, skip scrolling to
+      // the outer set — scrollBardToTextAfterSet will scroll directly to the text,
+      // eliminating the two-step "jump to top of Bard then jump to text" behaviour.
+      if (afterSetUid === undefined) {
+        setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
 
-    if (setEl.hasAttribute('data-node-view-wrapper')) {
-      focusBardSet(setEl);
+      if (setEl.hasAttribute('data-node-view-wrapper')) {
+        focusBardSet(setEl);
+      } else {
+        highlightSet(setEl);
+      }
+
+      if (afterSetUid !== undefined) {
+        setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
+      }
+    };
+
+    // expandSet dispatches a non-bubbling click that triggers Vue's reactive
+    // collapse toggle asynchronously. If any ancestor (or the target itself)
+    // needed expanding, defer the scroll until CSS transitions have completed
+    // so scrollIntoView uses the final, fully-rendered layout position.
+    if (anyCollapsed) {
+      setTimeout(doScrollAndHighlight, 300);
     } else {
-      highlightSet(setEl);
-    }
-
-    if (afterSetUid !== undefined) {
-      setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
+      doScrollAndHighlight();
     }
   };
 
