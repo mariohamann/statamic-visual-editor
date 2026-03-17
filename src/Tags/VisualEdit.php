@@ -7,83 +7,83 @@ use Statamic\Tags\Tags;
 
 class VisualEdit extends Tags
 {
-  protected static $handle = 'visual_edit';
+    protected static $handle = 'visual_edit';
 
-  /**
-   * {{ visual_edit:attr }} — Returns the data-sid attribute string for inline use.
-   * No-op outside Live Preview or when no UUID is available.
-   */
-  public function attr(): string
-  {
-    if (! $this->isLivePreview()) {
-      return '';
+    /**
+     * {{ visual_edit:attr }} — Returns the data-sid attribute string for inline use.
+     * No-op outside Live Preview or when no UUID is available.
+     */
+    public function attr(): string
+    {
+        if (! $this->isLivePreview()) {
+            return '';
+        }
+
+        $uuid = $this->params->get('id', $this->context->get('_visual_id'));
+
+        if (! $uuid) {
+            return '';
+        }
+
+        return $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType());
     }
 
-    $uuid = $this->params->get('id', $this->context->get('_visual_id'));
+    /**
+     * {{ visual_edit }}...{{ /visual_edit }} — Wraps content in a div with data-sid.
+     * No-op (passes through content) outside Live Preview or when no UUID is available.
+     */
+    public function index(): string
+    {
+        $content = $this->canParseContents() ? (string) $this->parse() : $this->content;
 
-    if (! $uuid) {
-      return '';
+        if (! $this->isLivePreview()) {
+            return $content;
+        }
+
+        $uuid = $this->params->get('id', $this->context->get('_visual_id'));
+
+        if (! $uuid) {
+            return $content;
+        }
+
+        return '<div '.$this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType()).'>'.$content.'</div>';
     }
 
-    return $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType());
-  }
+    private function resolveLabel(): string
+    {
+        $label = $this->params->get('label');
 
-  /**
-   * {{ visual_edit }}...{{ /visual_edit }} — Wraps content in a div with data-sid.
-   * No-op (passes through content) outside Live Preview or when no UUID is available.
-   */
-  public function index(): string
-  {
-    $content = $this->canParseContents() ? (string) $this->parse() : $this->content;
+        if ($label !== null) {
+            return (string) $label;
+        }
 
-    if (! $this->isLivePreview()) {
-      return $content;
+        $type = (string) $this->context->get('type', '');
+
+        return $type ? Str::headline($type) : '';
     }
 
-    $uuid = $this->params->get('id', $this->context->get('_visual_id'));
-
-    if (! $uuid) {
-      return $content;
+    private function resolveType(): string
+    {
+        return (string) $this->context->get('type', '');
     }
 
-    return '<div ' . $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType()) . '>' . $content . '</div>';
-  }
+    private function buildAttr(string $uuid, string $label, string $type = ''): string
+    {
+        $attr = 'data-sid="'.e($uuid).'"';
 
-  private function resolveLabel(): string
-  {
-    $label = $this->params->get('label');
+        if ($label !== '') {
+            $attr .= ' data-sid-label="'.e($label).'"';
+        }
 
-    if ($label !== null) {
-      return (string) $label;
+        if ($type !== '') {
+            $attr .= ' data-sid-type="'.e($type).'"';
+        }
+
+        return $attr;
     }
 
-    $type = (string) $this->context->get('type', '');
-
-    return $type ? Str::headline($type) : '';
-  }
-
-  private function resolveType(): string
-  {
-    return (string) $this->context->get('type', '');
-  }
-
-  private function buildAttr(string $uuid, string $label, string $type = ''): string
-  {
-    $attr = 'data-sid="' . e($uuid) . '"';
-
-    if ($label !== '') {
-      $attr .= ' data-sid-label="' . e($label) . '"';
+    protected function isLivePreview(): bool
+    {
+        return request()->isLivePreview();
     }
-
-    if ($type !== '') {
-      $attr .= ' data-sid-type="' . e($type) . '"';
-    }
-
-    return $attr;
-  }
-
-  protected function isLivePreview(): bool
-  {
-    return request()->isLivePreview();
-  }
 }
