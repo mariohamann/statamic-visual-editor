@@ -109,6 +109,75 @@ export function focusBardSet(setEl, duration = HIGHLIGHT_DURATION) {
   }, duration);
 }
 
+/**
+ * If setEl lives inside an inactive tab panel, switches to the containing tab
+ * by calling Statamic's PublishTabs `setActive(handle)` function, found by
+ * walking the Vue component parent chain from the tab trigger element.
+ *
+ * reka-ui's TabsTrigger does not respond to programmatic `.click()` or
+ * `dispatchEvent`, and Vue's component.setupState auto-unwraps refs so we
+ * cannot set activeTab.value directly. The reliable approach is to find the
+ * `setActive` function exposed in Statamic's PublishTabs.vue setupState and
+ * call it with the target tab handle.
+ *
+ * Returns true when a tab switch was initiated, false when not needed or not
+ * possible.
+ */
+export function switchToContainingTab(setEl, doc = document) {
+  const tabPanel = setEl.closest('[role="tabpanel"]');
+
+  if (!tabPanel) {
+    return false;
+  }
+
+  // reka-ui sets data-state="inactive" on hidden panels. Statamic also adds
+  // a .hidden CSS class via Vue's :class binding. Either is sufficient.
+  if (tabPanel.dataset.state !== 'inactive' && !tabPanel.classList.contains('hidden')) {
+    return false;
+  }
+
+  const triggerId = tabPanel.getAttribute('aria-labelledby');
+  if (!triggerId) {
+    return false;
+  }
+
+  const trigger = doc.getElementById(triggerId);
+  if (!trigger) {
+    return false;
+  }
+
+  // Extract the tab handle from the panel ID: "reka-tabs-v-N-content-{handle}"
+  const match = tabPanel.id.match(/-content-(.+)$/);
+  if (!match) {
+    return false;
+  }
+
+  const tabHandle = match[1];
+
+  // Walk the Vue component parent chain from the trigger element, looking for
+  // Statamic's PublishTabs component which exposes a `setActive(handle)` fn.
+  // Starting from the trigger traverses through reka-ui internals to the same
+  // component instance that owns the reactive activeTab state.
+  //
+  // Note: component.setupState auto-unwraps Vue refs to plain values, so we
+  // cannot set activeTab directly. Functions are not auto-unwrapped, so
+  // setActive is reachable as typeof setupState.setActive === 'function'.
+  let component = trigger.__vueParentComponent;
+
+  for (let depth = 0; component && depth < 40; depth++) {
+    const setActive = component.setupState?.setActive;
+
+    if (typeof setActive === 'function') {
+      setActive(tabHandle);
+      return true;
+    }
+
+    component = component.parent;
+  }
+
+  return false;
+}
+
 export function handleFocus(uid, doc = document, afterSetUid = undefined) {
   // Clear persistent active state from whichever element previously held it.
   doc.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => el.removeAttribute(ACTIVE_ATTR));
@@ -122,25 +191,38 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
   // Mark as active — persists until the next focus event.
   setEl.setAttribute(ACTIVE_ATTR, '');
 
-  const ancestors = collectAncestorSets(setEl);
+  const tabSwitched = switchToContainingTab(setEl, doc);
 
-  [...ancestors, setEl].forEach(expandSet);
+  // When a tab switch was initiated, Vue removes the .hidden class in a
+  // microtask. Defer the expand/scroll/highlight block so it runs after the
+  // panel becomes visible; otherwise scrollIntoView is a no-op on a hidden el.
+  const applyFocus = () => {
+    const ancestors = collectAncestorSets(setEl);
 
-  // When a precise text target (afterSetUid) is provided, skip scrolling to
-  // the outer set — scrollBardToTextAfterSet will scroll directly to the text,
-  // eliminating the two-step "jump to top of Bard then jump to text" behaviour.
-  if (afterSetUid === undefined) {
-    setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+    [...ancestors, setEl].forEach(expandSet);
 
-  if (setEl.hasAttribute('data-node-view-wrapper')) {
-    focusBardSet(setEl);
+    // When a precise text target (afterSetUid) is provided, skip scrolling to
+    // the outer set — scrollBardToTextAfterSet will scroll directly to the text,
+    // eliminating the two-step "jump to top of Bard then jump to text" behaviour.
+    if (afterSetUid === undefined) {
+      setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (setEl.hasAttribute('data-node-view-wrapper')) {
+      focusBardSet(setEl);
+    } else {
+      highlightSet(setEl);
+    }
+
+    if (afterSetUid !== undefined) {
+      setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
+    }
+  };
+
+  if (tabSwitched) {
+    setTimeout(applyFocus, 0);
   } else {
-    highlightSet(setEl);
-  }
-
-  if (afterSetUid !== undefined) {
-    setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
+    applyFocus();
   }
 }
 
