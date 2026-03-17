@@ -415,6 +415,12 @@ export function initCp(win = window) {
     const set = event.target.closest(SELECTORS.anySet);
 
     if (!set) {
+      // Always clear CP-side hover outlines. They may have been set by an
+      // incoming preview-originated hover message, which is independent of
+      // lastCpHoverUid and would otherwise linger permanently if the mouse
+      // moves from the preview into a non-set area of the CP.
+      win.document.querySelectorAll('[data-sve-hover]').forEach((el) => el.removeAttribute('data-sve-hover'));
+
       if (lastCpHoverUid !== null) {
         lastCpHoverUid = null;
         sendToPreview({ source: 'statamic-visual-editor', type: 'hover', uid: null }, win);

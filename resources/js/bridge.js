@@ -237,7 +237,7 @@ export function createClickHandler(win) {
 export function createHoverHandler(win) {
   let lastHoveredUid = null;
 
-  return function handleHover(event) {
+  function handleHover(event) {
     const target = event.target.closest(`[${SID_ATTR}]`);
     const uid = target ? target.getAttribute(SID_ATTR) : null;
 
@@ -268,7 +268,17 @@ export function createHoverHandler(win) {
     }
 
     win.top.postMessage(message, '*');
+  }
+
+  // When the mouse leaves the iframe entirely, immediately clear the CP hover
+  // state. Without this, dashed outlines in the CP linger indefinitely because
+  // the mouseover handler only fires for elements inside the iframe.
+  handleHover.reset = () => {
+    lastHoveredUid = null;
+    win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, '*');
   };
+
+  return handleHover;
 }
 
 export function createMessageReceiver(win) {
@@ -327,7 +337,13 @@ export function initBridge(win = window) {
   injectCpVariables(win.document, win);
   win.document.addEventListener('click', createClickHandler(win), true);
   win.document.addEventListener('mousemove', createMouseMoveHandler(win), true);
-  win.document.addEventListener('mouseover', createHoverHandler(win), true);
+
+  const hoverHandler = createHoverHandler(win);
+
+  win.document.addEventListener('mouseover', hoverHandler, true);
+  // When the pointer leaves the iframe document (e.g. moves into the CP chrome),
+  // immediately tell the CP to clear its hover outline.
+  win.document.addEventListener('mouseleave', () => hoverHandler.reset(), true);
   win.addEventListener('message', createMessageReceiver(win));
 }
 
