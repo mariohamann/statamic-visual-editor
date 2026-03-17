@@ -297,9 +297,15 @@ export function sendToPreview(message, win) {
 }
 
 function getUidFromSet(setEl) {
-  const input = setEl.querySelector(SELECTORS.visualIdInput);
+  const inputs = setEl.querySelectorAll(SELECTORS.visualIdInput);
 
-  return input ? input.value : null;
+  for (const input of inputs) {
+    if (input.closest(SELECTORS.anySet) === setEl) {
+      return input.value;
+    }
+  }
+
+  return null;
 }
 
 /**
