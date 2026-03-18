@@ -105,6 +105,13 @@ export function injectStyles(doc) {
         [data-sid-active][data-sid-label]::after {
             opacity: 1;
         }
+        .sve-cp-pulse {
+            animation: sve-cp-pulse 0.4s ease-out;
+        }
+        @keyframes sve-cp-pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+            100% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+        }
     `;
 
   doc.head.appendChild(style);
@@ -359,6 +366,17 @@ function findFieldElement(field, doc) {
   );
 }
 
+/**
+ * Briefly plays the sve-cp-pulse animation on el, restarting it if already running.
+ * Used to signal that a CP interaction caused this preview element to be focused.
+ */
+function pulseElement(el) {
+  el.classList.remove('sve-cp-pulse');
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add('sve-cp-pulse');
+  setTimeout(() => el.classList.remove('sve-cp-pulse'), 400);
+}
+
 export function createMessageReceiver(win) {
   return function handleMessage(event) {
     const { data } = event;
@@ -409,6 +427,7 @@ export function createMessageReceiver(win) {
         if (el) {
           el.setAttribute(ACTIVE_ATTR, '');
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          pulseElement(el);
         }
 
         return;
@@ -423,6 +442,7 @@ export function createMessageReceiver(win) {
         if (el) {
           el.setAttribute(ACTIVE_ATTR, '');
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          pulseElement(el);
         }
       }
     }

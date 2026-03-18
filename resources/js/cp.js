@@ -269,8 +269,9 @@ export function findFieldElement(fieldPath, doc = document) {
 /**
  * Focus a specific CP field by its dot-separated handle path.
  * Switches to the containing tab, scrolls, and plays a highlight animation.
+ * Pass `{ animate: false }` to skip the pulse (e.g. when triggered by a direct CP click).
  */
-export function handleFieldFocus(fieldPath, doc = document) {
+export function handleFieldFocus(fieldPath, doc = document, { animate = true } = {}) {
   doc.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => el.removeAttribute(ACTIVE_ATTR));
 
   const fieldEl = findFieldElement(fieldPath, doc);
@@ -285,8 +286,11 @@ export function handleFieldFocus(fieldPath, doc = document) {
 
   const applyFocus = () => {
     fieldEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    fieldEl.classList.add('sve-field-highlight');
-    setTimeout(() => fieldEl.classList.remove('sve-field-highlight'), 2000);
+
+    if (animate) {
+      fieldEl.classList.add('sve-field-highlight');
+      setTimeout(() => fieldEl.classList.remove('sve-field-highlight'), 2000);
+    }
   };
 
   if (tabSwitched) {
@@ -614,7 +618,8 @@ export function initCp(win = window) {
 
           // Mark the field as active in the CP (clears any hover, sets solid
           // outline) and notify the preview to highlight the matching element.
-          handleFieldFocus(fieldKey, win.document);
+          // No pulse here — the pulse is a cross-boundary signal, not a local one.
+          handleFieldFocus(fieldKey, win.document, { animate: false });
           sendToPreview({ source: 'statamic-visual-editor', type: 'focus', field: fieldKey }, win);
 
           return;
