@@ -332,6 +332,14 @@ export function handleFieldHover(fieldPath, doc = document) {
 
 export function createMessageListener(doc = document) {
   return function handleMessage(event) {
+    // Guard: only accept messages from the live-preview iframe.
+    // This prevents cross-site message spoofing from third-party windows.
+    const previewIframe = doc.getElementById('live-preview-iframe');
+
+    if (!previewIframe || event.source !== previewIframe.contentWindow) {
+      return;
+    }
+
     const { data } = event;
 
     if (!data || data.source !== 'statamic-visual-editor') {

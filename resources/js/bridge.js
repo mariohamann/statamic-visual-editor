@@ -84,6 +84,7 @@ export function injectStyles(doc) {
             position: relative;
         }
         [data-sid][data-sid-label]::after {
+            /* safe: data-sid-label is populated only by Blade/Antlers auto-escaped output; no XSS risk */
             content: attr(data-sid-label);
             position: absolute;
             top: -8px;
@@ -385,6 +386,12 @@ function pulseElement(el) {
 
 export function createMessageReceiver(win) {
   return function handleMessage(event) {
+    // Guard: only accept messages from the parent frame (the Statamic CP).
+    // This prevents cross-site message spoofing from third-party windows.
+    if (event.source !== win.top) {
+      return;
+    }
+
     const { data } = event;
 
     if (!data || data.source !== 'statamic-visual-editor') {
