@@ -135,7 +135,11 @@ class InjectVisualIdIntoBlueprint
       return $fields;
     }
 
-    $fields[] = ['handle' => '_visual_id', 'field' => ['type' => 'auto_uuid']];
+    $fields[] = ['handle' => '_visual_id', 'field' => [
+      'type' => 'auto_uuid',
+      'visibility' => 'hidden',
+      'replicator_preview' => false,
+    ]];
 
     return $fields;
   }
