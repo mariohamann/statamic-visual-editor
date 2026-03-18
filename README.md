@@ -86,12 +86,6 @@ Inside each component partial:
 {{ /team_members }}
 ```
 
-### Adding a custom label
-
-```antlers
-<div {{ visual_edit:attr label="Team Member" }}>...</div>
-```
-
 ### Overriding the UUID
 
 In rare cases you may want to target a specific set by its UUID directly:
@@ -103,7 +97,7 @@ In rare cases you may want to target a specific set by its UUID directly:
 ### Pair tag (wraps content in a `<div>`)
 
 ```antlers
-{{ visual_edit label="Hero Block" }}
+{{ visual_edit }}
   <h1>{{ hero_title }}</h1>
   <p>{{ hero_text }}</p>
 {{ /visual_edit }}
@@ -119,24 +113,24 @@ For pages without page builders — long landing pages, SEO metadata, global set
 
 ```antlers
 {{# Top-level field #}}
-<h1 {{ visual_edit:attr field="hero_title" label="Hero Title" }}>
+<h1 {{ visual_edit:attr field="hero_title" }}>
   {{ hero_title }}
 </h1>
 
 {{# Field in a group (dot notation) #}}
-<p {{ visual_edit:attr field="page_info.author" label="Author" }}>
+<p {{ visual_edit:attr field="page_info.author" }}>
   {{ page_info:author }}
 </p>
 
 {{# SEO fields are in the SEO tab — tab switching is handled automatically #}}
 <meta name="description" content="{{ seo_description }}">
 {{# In the preview panel: #}}
-<div {{ visual_edit:attr field="seo_description" label="SEO Description" }}>
+<div {{ visual_edit:attr field="seo_description" }}>
   {{ seo_description }}
 </div>
 ```
 
-No blueprint changes are required. The `field=` value must match Statamic's field handle path using **dot notation** for nested fields inside groups (e.g., `group_handle.field_handle`).
+No blueprint changes are required. The `field=` value must match Statamic's field handle path using **dot notation** for nested fields inside groups (e.g., `group_handle.field_handle`). The tooltip label is automatically resolved from the field's Display Name in the blueprint.
 
 ### Inset outline for dense UIs
 
@@ -176,10 +170,10 @@ Field targeting is fully bidirectional:
 For Blade templates, a global `visual_edit()` helper is available:
 
 ```blade
-<div {!! visual_edit($uuid, $label, $type) !!}>...</div>
+<div {!! visual_edit($uuid, $type) !!}>...</div>
 ```
 
-The function returns an empty string when not in Live Preview.
+The function returns an empty string when not in Live Preview. The label is auto-derived as `Str::headline($type)` when `$type` is provided.
 
 ---
 
@@ -206,7 +200,7 @@ After publishing, a settings page is available at **CP → Tools → Visual Edit
 
 ### Data flow (field-handle-based)
 
-1. **Template** — `{{ visual_edit:attr field="path" }}` outputs `data-sid-field="path"` (and optionally `data-sid-label`). No blueprint changes, no UUID required.
+1. **Template** — `{{ visual_edit:attr field="path" }}` outputs `data-sid-field="path"` (and `data-sid-label` auto-resolved from the blueprint's Display Name). No blueprint changes, no UUID required.
 2. **Click in preview** — `bridge.js` sends `{ type: 'click', field: 'path' }` to the CP.
 3. **CP receives message** — `cp.js` calls `document.getElementById('field_' + path.replaceAll('.', '_'))`, switches tabs if needed, scrolls to the field, and plays a border-pulse animation.
 4. **CP → preview hover sync** — Hovering a CP field wrapper (any element whose `id` starts with `field_`) sends `{ type: 'hover', field: key }` to the preview. The preview matches by normalizing the underscore form back to the registered `data-sid-field` values.

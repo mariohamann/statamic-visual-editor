@@ -26,7 +26,7 @@ class VisualEdit extends Tags
     $inside = $this->params->bool('outline-inside', false);
 
     if ($field !== null) {
-      return $this->buildFieldAttr((string) $field, $this->resolveLabel(), $inside);
+      return $this->buildFieldAttr((string) $field, $this->resolveFieldLabel((string) $field), $inside);
     }
 
     $uuid = $this->params->get('id', $this->context->get('_visual_id'));
@@ -54,7 +54,7 @@ class VisualEdit extends Tags
     $inside = $this->params->bool('outline-inside', false);
 
     if ($field !== null) {
-      return '<div ' . $this->buildFieldAttr((string) $field, $this->resolveLabel(), $inside) . '>' . $content . '</div>';
+      return '<div ' . $this->buildFieldAttr((string) $field, $this->resolveFieldLabel((string) $field), $inside) . '>' . $content . '</div>';
     }
 
     $uuid = $this->params->get('id', $this->context->get('_visual_id'));
@@ -68,15 +68,44 @@ class VisualEdit extends Tags
 
   private function resolveLabel(): string
   {
-    $label = $this->params->get('label');
-
-    if ($label !== null) {
-      return (string) $label;
-    }
-
     $type = (string) $this->context->get('type', '');
 
     return $type ? Str::headline($type) : '';
+  }
+
+  private function resolveFieldLabel(string $fieldPath): string
+  {
+    $page = $this->context->get('page');
+
+    if (! $page || ! method_exists($page, 'blueprint')) {
+      return '';
+    }
+
+    try {
+      $fields = $page->blueprint()->fields()->all();
+      $segments = explode('.', $fieldPath);
+      $firstHandle = array_shift($segments);
+
+      $field = $fields->get($firstHandle);
+
+      if (! $field) {
+        return '';
+      }
+
+      if (empty($segments)) {
+        return $field->display();
+      }
+
+      foreach ($field->config()['fields'] ?? [] as $subConfig) {
+        if (($subConfig['handle'] ?? '') === $segments[0]) {
+          return $subConfig['field']['display'] ?? '';
+        }
+      }
+    } catch (\Throwable) {
+      return '';
+    }
+
+    return '';
   }
 
   private function resolveType(): string
