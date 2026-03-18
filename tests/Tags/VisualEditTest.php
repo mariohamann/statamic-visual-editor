@@ -8,268 +8,372 @@ use Mariohamann\StatamicVisualEditor\Tests\TestCase;
 
 class VisualEditTest extends TestCase
 {
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
 
-    private function makeTag(
-        array $context = [],
-        array $params = [],
-        bool $livePreview = false,
-        string $content = ''
-    ): VisualEdit {
-        $tag = new class($livePreview) extends VisualEdit
-        {
-            public function __construct(private bool $livePreviewEnabled) {}
-
-            protected function isLivePreview(): bool
-            {
-                return $this->livePreviewEnabled;
-            }
-        };
-
-        $tag->setProperties([
-            'parser' => null,
-            'content' => $content,
-            'context' => $context,
-            'params' => $params,
-            'tag' => 'visual_edit',
-            'tag_method' => 'index',
-        ]);
-
-        return $tag;
-    }
-
-    // -------------------------------------------------------------------------
-    // attr() — Live Preview active
-    // -------------------------------------------------------------------------
-
-    public function test_attr_outputs_data_sid_during_live_preview(): void
+  private function makeTag(
+    array $context = [],
+    array $params = [],
+    bool $livePreview = false,
+    string $content = ''
+  ): VisualEdit {
+    $tag = new class($livePreview) extends VisualEdit
     {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: true,
-        );
+      public function __construct(private bool $livePreviewEnabled) {}
 
-        $this->assertSame('data-sid="abc-123"', $tag->attr());
-    }
+      protected function isLivePreview(): bool
+      {
+        return $this->livePreviewEnabled;
+      }
+    };
 
-    public function test_attr_includes_label_from_type_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => 'text_block'],
-            livePreview: true,
-        );
+    $tag->setProperties([
+      'parser' => null,
+      'content' => $content,
+      'context' => $context,
+      'params' => $params,
+      'tag' => 'visual_edit',
+      'tag_method' => 'index',
+    ]);
 
-        $this->assertSame('data-sid="abc-123" data-sid-label="Text Block" data-sid-type="text_block"', $tag->attr());
-    }
+    return $tag;
+  }
 
-    public function test_attr_includes_raw_type_as_data_sid_type(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => 'text'],
-            livePreview: true,
-        );
+  // -------------------------------------------------------------------------
+  // attr() — Live Preview active
+  // -------------------------------------------------------------------------
 
-        $this->assertStringContainsString('data-sid-type="text"', $tag->attr());
-        $this->assertStringContainsString('data-sid-label="Text"', $tag->attr());
-    }
+  public function test_attr_outputs_data_sid_during_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: true,
+    );
 
-    public function test_attr_explicit_id_param_overrides_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'from-context'],
-            params: ['id' => 'from-param'],
-            livePreview: true,
-        );
+    $this->assertSame('data-sid="abc-123"', $tag->attr());
+  }
 
-        $this->assertStringContainsString('data-sid="from-param"', $tag->attr());
-    }
+  public function test_attr_includes_label_from_type_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => 'text_block'],
+      livePreview: true,
+    );
 
-    public function test_attr_explicit_label_param_overrides_type_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => 'context_type'],
-            params: ['label' => 'explicit_label'],
-            livePreview: true,
-        );
+    $this->assertSame('data-sid="abc-123" data-sid-label="Text Block" data-sid-type="text_block"', $tag->attr());
+  }
 
-        $this->assertStringContainsString('data-sid-label="explicit_label"', $tag->attr());
-        $this->assertStringNotContainsString('data-sid-label="context_type"', $tag->attr());
-        $this->assertStringNotContainsString('data-sid-label="Context Type"', $tag->attr());
-    }
+  public function test_attr_includes_raw_type_as_data_sid_type(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => 'text'],
+      livePreview: true,
+    );
 
-    public function test_attr_omits_label_when_no_type_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: true,
-        );
+    $this->assertStringContainsString('data-sid-type="text"', $tag->attr());
+    $this->assertStringContainsString('data-sid-label="Text"', $tag->attr());
+  }
 
-        $this->assertStringNotContainsString('data-sid-label', $tag->attr());
-    }
+  public function test_attr_explicit_id_param_overrides_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'from-context'],
+      params: ['id' => 'from-param'],
+      livePreview: true,
+    );
 
-    // -------------------------------------------------------------------------
-    // attr() — outside Live Preview / no UUID
-    // -------------------------------------------------------------------------
+    $this->assertStringContainsString('data-sid="from-param"', $tag->attr());
+  }
 
-    public function test_attr_returns_empty_string_outside_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: false,
-        );
+  public function test_attr_explicit_label_param_overrides_type_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => 'context_type'],
+      params: ['label' => 'explicit_label'],
+      livePreview: true,
+    );
 
-        $this->assertSame('', $tag->attr());
-    }
+    $this->assertStringContainsString('data-sid-label="explicit_label"', $tag->attr());
+    $this->assertStringNotContainsString('data-sid-label="context_type"', $tag->attr());
+    $this->assertStringNotContainsString('data-sid-label="Context Type"', $tag->attr());
+  }
 
-    public function test_attr_returns_empty_string_when_no_visual_id_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: [],
-            livePreview: true,
-        );
+  public function test_attr_omits_label_when_no_type_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: true,
+    );
 
-        $this->assertSame('', $tag->attr());
-    }
+    $this->assertStringNotContainsString('data-sid-label', $tag->attr());
+  }
 
-    public function test_attr_returns_empty_string_outside_live_preview_with_no_context(): void
-    {
-        $tag = $this->makeTag(livePreview: false);
+  // -------------------------------------------------------------------------
+  // attr() — outside Live Preview / no UUID
+  // -------------------------------------------------------------------------
 
-        $this->assertSame('', $tag->attr());
-    }
+  public function test_attr_returns_empty_string_outside_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: false,
+    );
 
-    // -------------------------------------------------------------------------
-    // attr() — HTML escaping
-    // -------------------------------------------------------------------------
+    $this->assertSame('', $tag->attr());
+  }
 
-    public function test_attr_html_escapes_uuid(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => '"><script>'],
-            livePreview: true,
-        );
+  public function test_attr_returns_empty_string_when_no_visual_id_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: [],
+      livePreview: true,
+    );
 
-        $this->assertStringNotContainsString('<script>', $tag->attr());
-        $this->assertStringContainsString('data-sid=', $tag->attr());
-    }
+    $this->assertSame('', $tag->attr());
+  }
 
-    public function test_attr_html_escapes_label(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => '"><script>'],
-            livePreview: true,
-        );
+  public function test_attr_returns_empty_string_outside_live_preview_with_no_context(): void
+  {
+    $tag = $this->makeTag(livePreview: false);
 
-        $this->assertStringNotContainsString('<script>', $tag->attr());
-        $this->assertStringContainsString('data-sid-label=', $tag->attr());
-    }
+    $this->assertSame('', $tag->attr());
+  }
 
-    // -------------------------------------------------------------------------
-    // index() pair tag
-    // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // attr() — HTML escaping
+  // -------------------------------------------------------------------------
 
-    public function test_index_wraps_content_in_div_during_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: true,
-            content: 'hello world',
-        );
+  public function test_attr_html_escapes_uuid(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => '"><script>'],
+      livePreview: true,
+    );
 
-        $result = $tag->index();
+    $this->assertStringNotContainsString('<script>', $tag->attr());
+    $this->assertStringContainsString('data-sid=', $tag->attr());
+  }
 
-        $this->assertStringStartsWith('<div data-sid="abc-123">', $result);
-        $this->assertStringEndsWith('</div>', $result);
-        $this->assertStringContainsString('hello world', $result);
-    }
+  public function test_attr_html_escapes_label(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => '"><script>'],
+      livePreview: true,
+    );
 
-    public function test_index_passes_through_content_outside_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: false,
-            content: 'hello world',
-        );
+    $this->assertStringNotContainsString('<script>', $tag->attr());
+    $this->assertStringContainsString('data-sid-label=', $tag->attr());
+  }
 
-        $this->assertSame('hello world', $tag->index());
-    }
+  // -------------------------------------------------------------------------
+  // index() pair tag
+  // -------------------------------------------------------------------------
 
-    public function test_index_passes_through_content_when_no_visual_id(): void
-    {
-        $tag = $this->makeTag(
-            context: [],
-            livePreview: true,
-            content: 'hello world',
-        );
+  public function test_index_wraps_content_in_div_during_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: true,
+      content: 'hello world',
+    );
 
-        $this->assertSame('hello world', $tag->index());
-    }
+    $result = $tag->index();
 
-    // -------------------------------------------------------------------------
-    // visual_edit() Blade helper
-    // -------------------------------------------------------------------------
+    $this->assertStringStartsWith('<div data-sid="abc-123">', $result);
+    $this->assertStringEndsWith('</div>', $result);
+    $this->assertStringContainsString('hello world', $result);
+  }
 
-    public function test_blade_helper_returns_attr_string_during_live_preview(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+  public function test_index_passes_through_content_outside_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: false,
+      content: 'hello world',
+    );
 
-        $this->assertSame('data-sid="abc-123"', visual_edit('abc-123'));
-    }
+    $this->assertSame('hello world', $tag->index());
+  }
 
-    public function test_blade_helper_returns_empty_string_outside_live_preview(): void
-    {
-        Request::macro('isLivePreview', fn () => false);
+  public function test_index_passes_through_content_when_no_visual_id(): void
+  {
+    $tag = $this->makeTag(
+      context: [],
+      livePreview: true,
+      content: 'hello world',
+    );
 
-        $this->assertSame('', visual_edit('abc-123'));
-    }
+    $this->assertSame('hello world', $tag->index());
+  }
 
-    public function test_blade_helper_returns_empty_string_when_uuid_is_null(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+  // -------------------------------------------------------------------------
+  // visual_edit() Blade helper
+  // -------------------------------------------------------------------------
 
-        $this->assertSame('', visual_edit(null));
-    }
+  public function test_blade_helper_returns_attr_string_during_live_preview(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-    public function test_blade_helper_includes_label_when_provided(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+    $this->assertSame('data-sid="abc-123"', visual_edit('abc-123'));
+  }
 
-        $this->assertSame('data-sid="abc-123" data-sid-label="text_block"', visual_edit('abc-123', 'text_block'));
-    }
+  public function test_blade_helper_returns_empty_string_outside_live_preview(): void
+  {
+    Request::macro('isLivePreview', fn() => false);
 
-    public function test_blade_helper_includes_type_when_provided(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+    $this->assertSame('', visual_edit('abc-123'));
+  }
 
-        $this->assertSame('data-sid="abc-123" data-sid-label="Text" data-sid-type="text"', visual_edit('abc-123', 'Text', 'text'));
-    }
+  public function test_blade_helper_returns_empty_string_when_uuid_is_null(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-    public function test_blade_helper_omits_label_when_not_provided(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+    $this->assertSame('', visual_edit(null));
+  }
 
-        $this->assertStringNotContainsString('data-sid-label', visual_edit('abc-123'));
-    }
+  public function test_blade_helper_includes_label_when_provided(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-    public function test_blade_helper_html_escapes_uuid(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+    $this->assertSame('data-sid="abc-123" data-sid-label="text_block"', visual_edit('abc-123', 'text_block'));
+  }
 
-        $result = visual_edit('"><script>');
+  public function test_blade_helper_includes_type_when_provided(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-        $this->assertStringNotContainsString('<script>', $result);
-        $this->assertStringContainsString('data-sid=', $result);
-    }
+    $this->assertSame('data-sid="abc-123" data-sid-label="Text" data-sid-type="text"', visual_edit('abc-123', 'Text', 'text'));
+  }
 
-    public function test_blade_helper_html_escapes_label(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+  public function test_blade_helper_omits_label_when_not_provided(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-        $result = visual_edit('abc-123', '"><script>');
+    $this->assertStringNotContainsString('data-sid-label', visual_edit('abc-123'));
+  }
 
-        $this->assertStringNotContainsString('<script>', $result);
-        $this->assertStringContainsString('data-sid-label=', $result);
-    }
+  public function test_blade_helper_html_escapes_uuid(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
+
+    $result = visual_edit('"><script>');
+
+    $this->assertStringNotContainsString('<script>', $result);
+    $this->assertStringContainsString('data-sid=', $result);
+  }
+
+  public function test_blade_helper_html_escapes_label(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
+
+    $result = visual_edit('abc-123', '"><script>');
+
+    $this->assertStringNotContainsString('<script>', $result);
+    $this->assertStringContainsString('data-sid-label=', $result);
+  }
+
+  // -------------------------------------------------------------------------
+  // attr() — field= parameter (manual field targeting)
+  // -------------------------------------------------------------------------
+
+  public function test_attr_with_field_param_outputs_data_sid_field(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+    );
+
+    $this->assertSame('data-sid-field="hero_title"', $tag->attr());
+  }
+
+  public function test_attr_with_field_param_and_label_outputs_both_attributes(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title', 'label' => 'Hero Title'],
+    );
+
+    $this->assertSame('data-sid-field="hero_title" data-sid-label="Hero Title"', $tag->attr());
+  }
+
+  public function test_attr_with_dot_notation_field_param_outputs_dot_notation(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'page_info.author'],
+    );
+
+    $this->assertSame('data-sid-field="page_info.author"', $tag->attr());
+  }
+
+  public function test_attr_with_field_param_does_not_output_data_sid(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'some-uuid'],
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+    );
+
+    $result = $tag->attr();
+
+    $this->assertStringContainsString('data-sid-field="hero_title"', $result);
+    $this->assertStringNotContainsString('data-sid=', $result);
+  }
+
+  public function test_attr_with_field_param_returns_empty_outside_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: false,
+      params: ['field' => 'hero_title'],
+    );
+
+    $this->assertSame('', $tag->attr());
+  }
+
+  public function test_attr_with_field_param_html_escapes_field_path(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => '"><script>'],
+    );
+
+    $result = $tag->attr();
+
+    $this->assertStringNotContainsString('<script>', $result);
+    $this->assertStringContainsString('data-sid-field=', $result);
+  }
+
+  // -------------------------------------------------------------------------
+  // index() — field= parameter (manual field targeting)
+  // -------------------------------------------------------------------------
+
+  public function test_index_with_field_param_wraps_content_with_data_sid_field(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+      content: 'My Hero Title',
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringContainsString('data-sid-field="hero_title"', $result);
+    $this->assertStringContainsString('My Hero Title', $result);
+    $this->assertStringStartsWith('<div ', $result);
+    $this->assertStringEndsWith('</div>', $result);
+  }
+
+  public function test_index_with_field_param_does_not_output_data_sid(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+      content: 'content',
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringNotContainsString('data-sid="', $result);
+  }
 }

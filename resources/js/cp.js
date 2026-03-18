@@ -256,6 +256,65 @@ export function handleHover(uid, doc = document) {
   setEl.setAttribute('data-sve-hover', '');
 }
 
+/**
+ * Finds a field wrapper element in the CP by its dot-separated handle path.
+ * Statamic renders `id="field_{path.replaceAll('.', '_')}"` on every field wrapper.
+ */
+export function findFieldElement(fieldPath, doc = document) {
+  const id = 'field_' + fieldPath.replaceAll('.', '_');
+
+  return doc.getElementById(id);
+}
+
+/**
+ * Focus a specific CP field by its dot-separated handle path.
+ * Switches to the containing tab, scrolls, and plays a highlight animation.
+ */
+export function handleFieldFocus(fieldPath, doc = document) {
+  doc.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => el.removeAttribute(ACTIVE_ATTR));
+
+  const fieldEl = findFieldElement(fieldPath, doc);
+
+  if (!fieldEl) {
+    return;
+  }
+
+  fieldEl.setAttribute(ACTIVE_ATTR, '');
+
+  const tabSwitched = switchToContainingTab(fieldEl, doc);
+
+  const applyFocus = () => {
+    fieldEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    fieldEl.classList.add('sve-field-highlight');
+    setTimeout(() => fieldEl.classList.remove('sve-field-highlight'), 2000);
+  };
+
+  if (tabSwitched) {
+    setTimeout(applyFocus, 0);
+  } else {
+    applyFocus();
+  }
+}
+
+/**
+ * Apply a hover outline to a CP field wrapper identified by its handle path.
+ */
+export function handleFieldHover(fieldPath, doc = document) {
+  doc.querySelectorAll('[data-sve-hover]').forEach((el) => el.removeAttribute('data-sve-hover'));
+
+  if (!fieldPath) {
+    return;
+  }
+
+  const fieldEl = findFieldElement(fieldPath, doc);
+
+  if (!fieldEl || fieldEl.hasAttribute(ACTIVE_ATTR)) {
+    return;
+  }
+
+  fieldEl.setAttribute('data-sve-hover', '');
+}
+
 export function createMessageListener(doc = document) {
   return function handleMessage(event) {
     const { data } = event;
@@ -265,9 +324,17 @@ export function createMessageListener(doc = document) {
     }
 
     if (data.type === 'click') {
-      handleFocus(data.uid, doc, data.afterSetUid);
+      if (data.field) {
+        handleFieldFocus(data.field, doc);
+      } else {
+        handleFocus(data.uid, doc, data.afterSetUid);
+      }
     } else if (data.type === 'hover') {
-      handleHover(data.uid, doc);
+      if (data.field || ('field' in data && !data.uid)) {
+        handleFieldHover(data.field || null, doc);
+      } else {
+        handleHover(data.uid, doc);
+      }
     }
   };
 }
@@ -285,6 +352,14 @@ const CP_STYLES = `
 @keyframes sve-highlight-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
   100% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+}
+.sve-field-highlight {
+  animation: sve-field-highlight-pulse 0.5s ease-out;
+}
+@keyframes sve-field-highlight-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6); }
+  60%  { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.2); }
+  100% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
 }
 `;
 
@@ -436,11 +511,39 @@ export function initCp(win = window) {
     const set = event.target.closest(SELECTORS.anySet);
 
     if (!set) {
+      // Check if hovering over a field wrapper (id="field_{handle}").
+      // Walk up the DOM from the event target looking for a matching element.
+      let fieldWrapper = null;
+      let el = event.target;
+
+      while (el && el !== win.document.body) {
+        if (el.id && /^field_/.test(el.id)) {
+          fieldWrapper = el;
+          break;
+        }
+
+        el = el.parentElement;
+      }
+
       // Always clear CP-side hover outlines. They may have been set by an
       // incoming preview-originated hover message, which is independent of
       // lastCpHoverUid and would otherwise linger permanently if the mouse
       // moves from the preview into a non-set area of the CP.
       win.document.querySelectorAll('[data-sve-hover]').forEach((el) => el.removeAttribute('data-sve-hover'));
+
+      if (fieldWrapper) {
+        const fieldKey = fieldWrapper.id.slice('field_'.length);
+
+        if (fieldKey === lastCpHoverUid) {
+          return;
+        }
+
+        lastCpHoverUid = fieldKey;
+        fieldWrapper.setAttribute('data-sve-hover', '');
+        sendToPreview({ source: 'statamic-visual-editor', type: 'hover', field: fieldKey }, win);
+
+        return;
+      }
 
       if (lastCpHoverUid !== null) {
         lastCpHoverUid = null;

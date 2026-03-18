@@ -58,6 +58,12 @@ class InjectVisualIdIntoBlueprint
         $fieldDef['field']['sets'] = $this->processReplicatorSets($fieldDef['field']['sets']);
       }
 
+      if ($type === 'grid') {
+        $gridFields = $fieldDef['field']['fields'] ?? [];
+        $injected = $this->injectVisualId($gridFields);
+        $fieldDef['field']['fields'] = $this->processFields($injected);
+      }
+
       $result[] = $fieldDef;
     }
 
@@ -92,6 +98,12 @@ class InjectVisualIdIntoBlueprint
 
       if (in_array($type, ['replicator', 'bard'], true) && isset($inlined['field']['sets'])) {
         $inlined['field']['sets'] = $this->processReplicatorSets($inlined['field']['sets']);
+      }
+
+      if ($type === 'grid') {
+        $gridFields = $inlined['field']['fields'] ?? [];
+        $injected = $this->injectVisualId($gridFields);
+        $inlined['field']['fields'] = $this->processFields($injected);
       }
 
       return $inlined;

@@ -345,4 +345,123 @@ class InjectVisualIdIntoBlueprintTest extends TestCase
     $this->assertNotNull($buttonField);
     $this->assertSame('nonexistent.field', $buttonField['field']);
   }
+
+  // -------------------------------------------------------------------------
+  // Grid fieldtype
+  // -------------------------------------------------------------------------
+
+  private function gridField(string $handle, array $subFields = []): array
+  {
+    return [
+      'handle' => $handle,
+      'field' => [
+        'type' => 'grid',
+        'fields' => $subFields ?: [
+          ['handle' => 'title', 'field' => ['type' => 'text']],
+        ],
+      ],
+    ];
+  }
+
+  private function getGridFields(Blueprint $blueprint, string $fieldHandle): array
+  {
+    $fields = $blueprint->contents()['tabs']['main']['sections'][0]['fields'];
+
+    foreach ($fields as $field) {
+      if (($field['handle'] ?? null) === $fieldHandle) {
+        return $field['field']['fields'] ?? [];
+      }
+    }
+
+    return [];
+  }
+
+  public function test_grid_fields_gain_visual_id_on_entry_blueprint_found(): void
+  {
+    $blueprint = $this->makeBlueprint([
+      $this->gridField('team_members'),
+    ]);
+
+    EntryBlueprintFound::dispatch($blueprint);
+
+    $fields = $this->getGridFields($blueprint, 'team_members');
+
+    $this->assertContains('_visual_id', array_column($fields, 'handle'));
+  }
+
+  public function test_grid_visual_id_field_has_auto_uuid_type(): void
+  {
+    $blueprint = $this->makeBlueprint([
+      $this->gridField('team_members'),
+    ]);
+
+    EntryBlueprintFound::dispatch($blueprint);
+
+    $fields = $this->getGridFields($blueprint, 'team_members');
+    $visualIdField = collect($fields)->firstWhere('handle', '_visual_id');
+
+    $this->assertNotNull($visualIdField);
+    $this->assertSame('auto_uuid', $visualIdField['field']['type']);
+    $this->assertSame('hidden', $visualIdField['field']['visibility']);
+  }
+
+  public function test_existing_grid_visual_id_is_not_duplicated(): void
+  {
+    $blueprint = $this->makeBlueprint([
+      $this->gridField('team_members', [
+        ['handle' => 'name', 'field' => ['type' => 'text']],
+        ['handle' => '_visual_id', 'field' => ['type' => 'auto_uuid', 'visibility' => 'hidden', 'replicator_preview' => false]],
+      ]),
+    ]);
+
+    EntryBlueprintFound::dispatch($blueprint);
+    EntryBlueprintFound::dispatch($blueprint);
+
+    $fields = $this->getGridFields($blueprint, 'team_members');
+    $visualIdCount = count(array_filter(array_column($fields, 'handle'), fn($h) => $h === '_visual_id'));
+
+    $this->assertSame(1, $visualIdCount);
+  }
+
+  public function test_replicator_inside_grid_row_also_gains_visual_id(): void
+  {
+    $nestedReplicator = [
+      'handle' => 'items',
+      'field' => [
+        'type' => 'replicator',
+        'sets' => [
+          'item' => [
+            'display' => 'Item',
+            'sets' => [
+              'item' => [
+                'display' => 'Item',
+                'fields' => [
+                  ['handle' => 'label', 'field' => ['type' => 'text']],
+                ],
+              ],
+            ],
+          ],
+        ],
+      ],
+    ];
+
+    $blueprint = $this->makeBlueprint([
+      $this->gridField('rows', [
+        ['handle' => 'name', 'field' => ['type' => 'text']],
+        $nestedReplicator,
+      ]),
+    ]);
+
+    EntryBlueprintFound::dispatch($blueprint);
+
+    $gridFields = $this->getGridFields($blueprint, 'rows');
+
+    // Grid itself must get _visual_id
+    $this->assertContains('_visual_id', array_column($gridFields, 'handle'));
+
+    // Nested replicator sets must also get _visual_id
+    $replicatorField = collect($gridFields)->firstWhere('handle', 'items');
+    $innerSetFields = $replicatorField['field']['sets']['item']['sets']['item']['fields'] ?? [];
+    $this->assertContains('_visual_id', array_column($innerSetFields, 'handle'));
+  }
 }

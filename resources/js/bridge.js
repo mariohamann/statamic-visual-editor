@@ -5,6 +5,7 @@ const ACTIVE_ATTR = 'data-sid-active';
 const HOVER_ATTR = 'data-sid-hover';
 const INNER_ATTR = 'data-sid-inner';
 const SID_ATTR = 'data-sid';
+const SID_FIELD_ATTR = 'data-sid-field';
 const STYLES_ID = '__sve-bridge-styles';
 const MOUSE_ACTIVE_CLASS = 'sve-mouse-active';
 const HOVER_CLEAR_DELAY = 1500;
@@ -43,7 +44,7 @@ export function injectStyles(doc) {
 
   style.id = STYLES_ID;
   style.textContent = `
-        [data-sid] {
+        [data-sid], [data-sid-field] {
             cursor: pointer;
             outline-width: var(--sve-outline-width, 2px);
             outline-style: dashed;
@@ -51,7 +52,7 @@ export function injectStyles(doc) {
             outline-offset: 2px;
             transition: outline-color 0.15s ease;
         }
-        .${MOUSE_ACTIVE_CLASS} [data-sid] {
+        .${MOUSE_ACTIVE_CLASS} [data-sid], .${MOUSE_ACTIVE_CLASS} [data-sid-field] {
             outline-color: var(--sve-hover-color, #9CA3AF);
         }
         [data-sid-inner],
@@ -175,9 +176,9 @@ export function createMouseMoveHandler(win) {
   return function handleMouseMove(event) {
     win.document.documentElement.classList.add(MOUSE_ACTIVE_CLASS);
 
-    // Track innermost [data-sid] for solid outline
+    // Track innermost [data-sid] or [data-sid-field] for solid outline
     const current = win.document.querySelector(`[${INNER_ATTR}]`);
-    const target = event.target.closest(`[${SID_ATTR}]`);
+    const target = event.target.closest(`[${SID_ATTR}], [${SID_FIELD_ATTR}]`);
 
     if (current !== target) {
       if (current) {
@@ -204,7 +205,7 @@ export function createMouseMoveHandler(win) {
 
 export function createClickHandler(win) {
   return function handleClick(event) {
-    const target = event.target.closest(`[${SID_ATTR}]`);
+    const target = event.target.closest(`[${SID_ATTR}], [${SID_FIELD_ATTR}]`);
 
     if (!target) {
       return;
@@ -217,6 +218,21 @@ export function createClickHandler(win) {
     });
 
     target.setAttribute(ACTIVE_ATTR, '');
+
+    // Field-handle targeting (data-sid-field) — sends the dot-separated field path.
+    if (target.hasAttribute(SID_FIELD_ATTR)) {
+      win.top.postMessage(
+        {
+          source: 'statamic-visual-editor',
+          type: 'click',
+          field: target.getAttribute(SID_FIELD_ATTR),
+          label: target.getAttribute('data-sid-label') || undefined,
+        },
+        '*'
+      );
+
+      return;
+    }
 
     const message = {
       source: 'statamic-visual-editor',
@@ -235,18 +251,41 @@ export function createClickHandler(win) {
 }
 
 export function createHoverHandler(win) {
-  let lastHoveredUid = null;
+  let lastHoveredKey = null;
 
   function handleHover(event) {
-    const target = event.target.closest(`[${SID_ATTR}]`);
-    const uid = target ? target.getAttribute(SID_ATTR) : null;
+    const target = event.target.closest(`[${SID_ATTR}], [${SID_FIELD_ATTR}]`);
 
-    // Deduplicate: skip when still over the same element (or still off any element).
-    if (uid === lastHoveredUid) {
+    // Field-handle targeting: deduplicate on the field path string.
+    if (target && target.hasAttribute(SID_FIELD_ATTR)) {
+      const field = target.getAttribute(SID_FIELD_ATTR);
+
+      if (field === lastHoveredKey) {
+        return;
+      }
+
+      lastHoveredKey = field;
+      win.top.postMessage(
+        {
+          source: 'statamic-visual-editor',
+          type: 'hover',
+          field,
+          label: target.getAttribute('data-sid-label') || undefined,
+        },
+        '*'
+      );
+
       return;
     }
 
-    lastHoveredUid = uid;
+    const uid = target ? target.getAttribute(SID_ATTR) : null;
+
+    // Deduplicate: skip when still over the same element (or still off any element).
+    if (uid === lastHoveredKey) {
+      return;
+    }
+
+    lastHoveredKey = uid;
 
     if (!uid) {
       // Mouse left all annotated elements — tell the CP to clear its hover state.
@@ -274,11 +313,35 @@ export function createHoverHandler(win) {
   // state. Without this, dashed outlines in the CP linger indefinitely because
   // the mouseover handler only fires for elements inside the iframe.
   handleHover.reset = () => {
-    lastHoveredUid = null;
+    lastHoveredKey = null;
     win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, '*');
   };
 
   return handleHover;
+}
+
+/**
+ * Finds a [data-sid-field] element in the document by field path.
+ * Matches both exact dot-notation paths ("seo.title") and underscore-normalized
+ * paths ("seo_title") that the CP sends when doing reverse hover sync.
+ */
+function findFieldElement(field, doc) {
+  // Try exact match first (preview→CP direction, already uses dot notation).
+  const exact = doc.querySelector(`[${SID_FIELD_ATTR}="${field}"]`);
+
+  if (exact) {
+    return exact;
+  }
+
+  // Fallback: match by normalizing dots to underscores (CP→preview direction
+  // uses the Statamic id suffix, e.g. "seo_title" matches "seo.title").
+  const normalized = field.replaceAll('.', '_');
+
+  return (
+    [...doc.querySelectorAll(`[${SID_FIELD_ATTR}]`)].find(
+      (el) => el.getAttribute(SID_FIELD_ATTR).replaceAll('.', '_') === normalized
+    ) || null
+  );
 }
 
 export function createMessageReceiver(win) {
@@ -293,6 +356,17 @@ export function createMessageReceiver(win) {
       win.document.querySelectorAll(`[${HOVER_ATTR}]`).forEach((el) => {
         el.removeAttribute(HOVER_ATTR);
       });
+
+      // Field-handle hover: highlight the element annotated with data-sid-field.
+      if (data.field) {
+        const el = findFieldElement(data.field, win.document);
+
+        if (el) {
+          el.setAttribute(HOVER_ATTR, '');
+        }
+
+        return;
+      }
 
       if (data.uid) {
         const el =
@@ -312,6 +386,18 @@ export function createMessageReceiver(win) {
       win.document.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => {
         el.removeAttribute(ACTIVE_ATTR);
       });
+
+      // Field-handle focus: highlight the element annotated with data-sid-field.
+      if (data.field) {
+        const el = findFieldElement(data.field, win.document);
+
+        if (el) {
+          el.setAttribute(ACTIVE_ATTR, '');
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        return;
+      }
 
       if (data.uid) {
         const el =
