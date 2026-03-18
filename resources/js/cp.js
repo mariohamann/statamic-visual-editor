@@ -539,8 +539,13 @@ export function initCp(win = window) {
         }
 
         lastCpHoverUid = fieldKey;
-        fieldWrapper.setAttribute('data-sve-hover', '');
-        sendToPreview({ source: 'statamic-visual-editor', type: 'hover', field: fieldKey }, win);
+
+        // Don't apply hover to a field that is already focused/active — mirrors
+        // the guard on the set branch below.
+        if (!fieldWrapper.hasAttribute(ACTIVE_ATTR)) {
+          fieldWrapper.setAttribute('data-sve-hover', '');
+          sendToPreview({ source: 'statamic-visual-editor', type: 'hover', field: fieldKey }, win);
+        }
 
         return;
       }
@@ -598,6 +603,26 @@ export function initCp(win = window) {
     const set = event.target.closest(SELECTORS.anySet);
 
     if (!set) {
+      // Check if the click landed inside a field wrapper (id="field_{handle}").
+      // If so, send a focus message to the preview so the corresponding
+      // [data-sid-field] element gets highlighted — mirrors the mouseover logic.
+      let el = event.target;
+
+      while (el && el !== win.document.body) {
+        if (el.id && /^field_/.test(el.id)) {
+          const fieldKey = el.id.slice('field_'.length);
+
+          // Mark the field as active in the CP (clears any hover, sets solid
+          // outline) and notify the preview to highlight the matching element.
+          handleFieldFocus(fieldKey, win.document);
+          sendToPreview({ source: 'statamic-visual-editor', type: 'focus', field: fieldKey }, win);
+
+          return;
+        }
+
+        el = el.parentElement;
+      }
+
       return;
     }
 
