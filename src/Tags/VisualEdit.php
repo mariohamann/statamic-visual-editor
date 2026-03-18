@@ -10,41 +10,20 @@ class VisualEdit extends Tags
   protected static $handle = 'visual_edit';
 
   /**
-   * {{ visual_edit:attr }} — Returns the data-sid attribute string for inline use.
+   * {{ visual_edit }} — Dual-mode tag.
+   *
+   * Self-closing: returns the data-sid attribute string for inline use inside an HTML opening tag.
+   * Pair tag: wraps content in a <div> with data-sid attributes.
+   *
    * No-op outside Live Preview or when no UUID/field is available.
    *
    * With `field="dot.separated.path"`: targets a specific CP field by handle.
    * With no `field` param: targets the nearest Replicator/Bard/Grid set UUID.
    */
-  public function attr(): string
-  {
-    if (! $this->isLivePreview()) {
-      return '';
-    }
-
-    $field = $this->params->get('field');
-    $inside = $this->params->bool('outline-inside', false);
-
-    if ($field !== null) {
-      return $this->buildFieldAttr((string) $field, $this->resolveFieldLabel((string) $field), $inside);
-    }
-
-    $uuid = $this->params->get('id', $this->context->get('_visual_id'));
-
-    if (! $uuid) {
-      return '';
-    }
-
-    return $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType(), $inside);
-  }
-
-  /**
-   * {{ visual_edit }}...{{ /visual_edit }} — Wraps content in a div with data-sid.
-   * No-op (passes through content) outside Live Preview or when no UUID/field is available.
-   */
   public function index(): string
   {
-    $content = $this->canParseContents() ? (string) $this->parse() : $this->content;
+    $isPair = $this->isPair;
+    $content = $isPair ? (string) $this->parse() : '';
 
     if (! $this->isLivePreview()) {
       return $content;
@@ -54,7 +33,9 @@ class VisualEdit extends Tags
     $inside = $this->params->bool('outline-inside', false);
 
     if ($field !== null) {
-      return '<div ' . $this->buildFieldAttr((string) $field, $this->resolveFieldLabel((string) $field), $inside) . '>' . $content . '</div>';
+      $attr = $this->buildFieldAttr((string) $field, $this->resolveFieldLabel((string) $field), $inside);
+
+      return $isPair ? '<div ' . $attr . '>' . $content . '</div>' : $attr;
     }
 
     $uuid = $this->params->get('id', $this->context->get('_visual_id'));
@@ -63,7 +44,9 @@ class VisualEdit extends Tags
       return $content;
     }
 
-    return '<div ' . $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType(), $inside) . '>' . $content . '</div>';
+    $attr = $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType(), $inside);
+
+    return $isPair ? '<div ' . $attr . '>' . $content . '</div>' : $attr;
   }
 
   private function resolveLabel(): string

@@ -38,7 +38,7 @@ The addon automatically assigns a stable UUID (`_visual_id`) to every set in Rep
 
 ### Template usage
 
-Use `{{ visual_edit:attr }}` inside the loop that renders your sets. The tag outputs `data-sid="..."` attributes during Live Preview and is a complete no-op in production.
+Use `{{ visual_edit }}` inside the loop that renders your sets. The tag outputs `data-sid="..."` attributes during Live Preview and is a complete no-op in production.
 
 **Replicator / page builder:**
 
@@ -52,7 +52,7 @@ Inside each partial, annotate the outermost element:
 
 ```antlers
 {{# resources/views/page_builder/_text.antlers.html #}}
-<div class="..." {{ visual_edit:attr }}>
+<div class="..." {{ visual_edit }}>
   {{ text }}
 </div>
 ```
@@ -71,7 +71,7 @@ Inside each component partial:
 
 ```antlers
 {{# resources/views/components/_pull_quote.antlers.html #}}
-<figure {{ visual_edit:attr }}>
+<figure {{ visual_edit }}>
   <blockquote>{{ quote }}</blockquote>
 </figure>
 ```
@@ -80,7 +80,7 @@ Inside each component partial:
 
 ```antlers
 {{ team_members }}
-  <div class="card" {{ visual_edit:attr }}>
+  <div class="card" {{ visual_edit }}>
     <h2>{{ name }}</h2>
   </div>
 {{ /team_members }}
@@ -91,7 +91,7 @@ Inside each component partial:
 In rare cases you may want to target a specific set by its UUID directly:
 
 ```antlers
-<div {{ visual_edit:attr id="custom-uuid-here" }}>...</div>
+<div {{ visual_edit id="custom-uuid-here" }}>...</div>
 ```
 
 ### Pair tag (wraps content in a `<div>`)
@@ -113,19 +113,19 @@ For pages without page builders — long landing pages, SEO metadata, global set
 
 ```antlers
 {{# Top-level field #}}
-<h1 {{ visual_edit:attr field="hero_title" }}>
+<h1 {{ visual_edit field="hero_title" }}>
   {{ hero_title }}
 </h1>
 
 {{# Field in a group (dot notation) #}}
-<p {{ visual_edit:attr field="page_info.author" }}>
+<p {{ visual_edit field="page_info.author" }}>
   {{ page_info:author }}
 </p>
 
 {{# SEO fields are in the SEO tab — tab switching is handled automatically #}}
 <meta name="description" content="{{ seo_description }}">
 {{# In the preview panel: #}}
-<div {{ visual_edit:attr field="seo_description" }}>
+<div {{ visual_edit field="seo_description" }}>
   {{ seo_description }}
 </div>
 ```
@@ -137,7 +137,7 @@ No blueprint changes are required. The `field=` value must match Statamic's fiel
 In compact layouts where elements are tightly stacked (e.g. metadata panels), the default `2px` outbound outline can overlap neighbouring elements. Add `outline-inside="true"` to switch the outline to `-2px` offset (drawn inside the element border instead):
 
 ```antlers
-<div {{ visual_edit:attr field="title" outline-inside="true" }}>
+<div {{ visual_edit field="title" outline-inside="true" }}>
   {{ title }}
 </div>
 ```
@@ -193,14 +193,14 @@ After publishing, a settings page is available at **CP → Tools → Visual Edit
 
 1. **Blueprint loading** — `InjectVisualIdIntoBlueprint` listener adds a hidden `_visual_id` (`auto_uuid`) field to every Replicator, Bard, and Grid set definition.
 2. **Entry saving** — `StampVisualIds` listener assigns a `Str::uuid()` to each set that doesn't already have one. Existing UUIDs are never changed.
-3. **Live Preview rendering** — `{{ visual_edit:attr }}` outputs `data-sid="{uuid}"` on annotated elements. `InjectBridgeScript` middleware injects `bridge.js` into the iframe.
+3. **Live Preview rendering** — `{{ visual_edit }}` outputs `data-sid="{uuid}"` on annotated elements. `InjectBridgeScript` middleware injects `bridge.js` into the iframe.
 4. **Click in preview** — `bridge.js` sends `{ type: 'click', uid }` via `postMessage` to the CP.
 5. **CP receives message** — `cp.js` finds the set by its `[data-visual-id]` input, switches tabs if needed, expands collapsed ancestors, scrolls to the set, and plays a highlight animation.
 6. **CP → preview hover sync** — Hovering a set in the CP sends `{ type: 'hover', uid }` to the preview, which adds `data-sid-hover` styling to the matching element.
 
 ### Data flow (field-handle-based)
 
-1. **Template** — `{{ visual_edit:attr field="path" }}` outputs `data-sid-field="path"` (and `data-sid-label` auto-resolved from the blueprint's Display Name). No blueprint changes, no UUID required.
+1. **Template** — `{{ visual_edit field="path" }}` outputs `data-sid-field="path"` (and `data-sid-label` auto-resolved from the blueprint's Display Name). No blueprint changes, no UUID required.
 2. **Click in preview** — `bridge.js` sends `{ type: 'click', field: 'path' }` to the CP.
 3. **CP receives message** — `cp.js` calls `document.getElementById('field_' + path.replaceAll('.', '_'))`, switches tabs if needed, scrolls to the field, and plays a border-pulse animation.
 4. **CP → preview hover sync** — Hovering a CP field wrapper (any element whose `id` starts with `field_`) sends `{ type: 'hover', field: key }` to the preview. The preview matches by normalizing the underscore form back to the registered `data-sid-field` values.
