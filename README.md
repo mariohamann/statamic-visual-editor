@@ -118,7 +118,7 @@ php artisan vendor:publish --provider="Mariohamann\StatamicVisualEditor\ServiceP
 # 4. PHP tests
 cd addons/mariohamann/statamic-visual-editor && vendor/bin/phpunit
 
-# 5. E2E tests (requires live site at https://live-editor.test)
+# 5. E2E tests (requires site running)
 npx playwright test
 ```
 
