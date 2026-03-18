@@ -14,7 +14,11 @@ export const SELECTORS = {
 
 const HIGHLIGHT_CLASS = 'sve-highlight';
 const ACTIVE_ATTR = 'data-sve-active';
-const HIGHLIGHT_DURATION = 2000;
+const HIGHLIGHT_DURATION = 2000; // ms — matches the sve-highlight-pulse @keyframes animation duration
+// Matches the CSS collapse/expand transition duration on Statamic's Replicator/Bard sets.
+// Defer scroll/highlight until after this period so scrollIntoView uses the final layout.
+// Update this if Statamic's collapse transition duration ever changes.
+const COLLAPSE_SETTLE_MS = 300;
 
 export function findSetByUid(uid, doc = document) {
   const inputs = doc.querySelectorAll(SELECTORS.visualIdInput);
@@ -185,6 +189,7 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
   const setEl = findSetByUid(uid, doc);
 
   if (!setEl) {
+    console.warn('[StatamicVisualEditor] handleFocus: no set found for uid:', uid);
     return;
   }
 
@@ -219,7 +224,7 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
       }
 
       if (afterSetUid !== undefined) {
-        setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), 300);
+        setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), COLLAPSE_SETTLE_MS);
       }
     };
 
@@ -228,7 +233,7 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
     // needed expanding, defer the scroll until CSS transitions have completed
     // so scrollIntoView uses the final, fully-rendered layout position.
     if (anyCollapsed) {
-      setTimeout(doScrollAndHighlight, 300);
+      setTimeout(doScrollAndHighlight, COLLAPSE_SETTLE_MS);
     } else {
       doScrollAndHighlight();
     }
@@ -259,6 +264,11 @@ export function handleHover(uid, doc = document) {
 /**
  * Finds a field wrapper element in the CP by its dot-separated handle path.
  * Statamic renders `id="field_{path.replaceAll('.', '_')}"` on every field wrapper.
+ *
+ * Counterpart: bridge.js `findFieldElement()` — runs in the preview iframe and
+ * resolves the preview-side `[data-sid-field]` attribute via querySelector +
+ * underscore normalization. The two functions cannot share code because they run
+ * in separate bundles (CP window vs. preview iframe).
  */
 export function findFieldElement(fieldPath, doc = document) {
   const id = 'field_' + fieldPath.replaceAll('.', '_');
@@ -277,6 +287,7 @@ export function handleFieldFocus(fieldPath, doc = document, { animate = true } =
   const fieldEl = findFieldElement(fieldPath, doc);
 
   if (!fieldEl) {
+    console.warn('[StatamicVisualEditor] handleFieldFocus: no field element found for path:', fieldPath);
     return;
   }
 
@@ -371,6 +382,10 @@ export function sendToPreview(message, win) {
   const iframe = win.document.getElementById('live-preview-iframe');
 
   if (iframe && iframe.contentWindow) {
+    // Use '*' as targetOrigin because the preview iframe may be served from a
+    // different origin (e.g. a custom preview domain). Restricting to a specific
+    // origin would silently drop messages. This is admin-only functionality so
+    // the cross-origin exposure is acceptable.
     iframe.contentWindow.postMessage(message, '*');
   }
 }

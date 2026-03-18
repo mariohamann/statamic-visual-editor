@@ -8,7 +8,8 @@ const SID_ATTR = 'data-sid';
 const SID_FIELD_ATTR = 'data-sid-field';
 const STYLES_ID = '__sve-bridge-styles';
 const MOUSE_ACTIVE_CLASS = 'sve-mouse-active';
-const HOVER_CLEAR_DELAY = 1500;
+const HOVER_CLEAR_DELAY = 1500; // ms of mouse inactivity before outline clears
+const PULSE_DURATION = 400; // ms — matches the sve-cp-pulse @keyframes animation duration
 
 /**
  * Copies --focus-outline-width and --focus-outline-color from the CP (parent)
@@ -250,7 +251,7 @@ export function createClickHandler(win) {
           field: target.getAttribute(SID_FIELD_ATTR),
           label: target.getAttribute('data-sid-label') || undefined,
         },
-        '*'
+        win.location.origin
       );
 
       return;
@@ -268,7 +269,7 @@ export function createClickHandler(win) {
       message.afterSetUid = prevSet ? prevSet.getAttribute(SID_ATTR) : null;
     }
 
-    win.top.postMessage(message, '*');
+    win.top.postMessage(message, win.location.origin);
   };
 }
 
@@ -294,7 +295,7 @@ export function createHoverHandler(win) {
           field,
           label: target.getAttribute('data-sid-label') || undefined,
         },
-        '*'
+        win.location.origin
       );
 
       return;
@@ -311,7 +312,7 @@ export function createHoverHandler(win) {
 
     if (!uid) {
       // Mouse left all annotated elements — tell the CP to clear its hover state.
-      win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, '*');
+      win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, win.location.origin);
 
       return;
     }
@@ -328,7 +329,7 @@ export function createHoverHandler(win) {
       message.afterSetUid = prevSet ? prevSet.getAttribute(SID_ATTR) : null;
     }
 
-    win.top.postMessage(message, '*');
+    win.top.postMessage(message, win.location.origin);
   }
 
   // When the mouse leaves the iframe entirely, immediately clear the CP hover
@@ -336,7 +337,7 @@ export function createHoverHandler(win) {
   // the mouseover handler only fires for elements inside the iframe.
   handleHover.reset = () => {
     lastHoveredKey = null;
-    win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, '*');
+    win.top.postMessage({ source: 'statamic-visual-editor', type: 'hover', uid: null }, win.location.origin);
   };
 
   return handleHover;
@@ -346,6 +347,11 @@ export function createHoverHandler(win) {
  * Finds a [data-sid-field] element in the document by field path.
  * Matches both exact dot-notation paths ("seo.title") and underscore-normalized
  * paths ("seo_title") that the CP sends when doing reverse hover sync.
+ *
+ * Counterpart: cp.js `findFieldElement()` — runs in the CP and resolves the
+ * CP-side `#field_{handle}` element via getElementById instead of a DOM scan.
+ * The two functions cannot share code because they run in separate bundles
+ * (preview iframe vs. CP window).
  */
 function findFieldElement(field, doc) {
   // Try exact match first (preview→CP direction, already uses dot notation).
@@ -374,7 +380,7 @@ function pulseElement(el) {
   el.classList.remove('sve-cp-pulse');
   void el.offsetWidth; // force reflow to restart animation
   el.classList.add('sve-cp-pulse');
-  setTimeout(() => el.classList.remove('sve-cp-pulse'), 400);
+  setTimeout(() => el.classList.remove('sve-cp-pulse'), PULSE_DURATION);
 }
 
 export function createMessageReceiver(win) {
