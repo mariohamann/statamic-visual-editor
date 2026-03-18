@@ -68,6 +68,17 @@ export function injectStyles(doc) {
             outline-color: var(--sve-focus-color, currentColor) !important;
             outline-offset: 2px;
         }
+        [data-sid-inside] {
+            outline-offset: -2px;
+        }
+        [data-sid-inside][data-sid-inner],
+        [data-sid-inside][data-sid-hover],
+        [data-sid-inside][data-sid-active] {
+            outline-offset: -2px !important;
+        }
+        [data-sid-inside][data-sid-label]::after {
+            top: -4px;
+        }
         [data-sid][data-sid-label] {
             position: relative;
         }

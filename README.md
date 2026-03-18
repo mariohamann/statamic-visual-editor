@@ -138,6 +138,18 @@ For pages without page builders — long landing pages, SEO metadata, global set
 
 No blueprint changes are required. The `field=` value must match Statamic's field handle path using **dot notation** for nested fields inside groups (e.g., `group_handle.field_handle`).
 
+### Inset outline for dense UIs
+
+In compact layouts where elements are tightly stacked (e.g. metadata panels), the default `2px` outbound outline can overlap neighbouring elements. Add `outline-inside="true"` to switch the outline to `-2px` offset (drawn inside the element border instead):
+
+```antlers
+<div {{ visual_edit:attr field="title" outline-inside="true" }}>
+  {{ title }}
+</div>
+```
+
+The tooltip badge position is also adjusted automatically when `outline-inside` is active.
+
 ### How field paths map to CP IDs
 
 Statamic renders every field wrapper with `id="field_{path.replaceAll('.', '_')}"`. This addon uses that stable convention to locate the field:

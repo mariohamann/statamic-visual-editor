@@ -23,9 +23,10 @@ class VisualEdit extends Tags
     }
 
     $field = $this->params->get('field');
+    $inside = $this->params->bool('outline-inside', false);
 
     if ($field !== null) {
-      return $this->buildFieldAttr((string) $field, $this->resolveLabel());
+      return $this->buildFieldAttr((string) $field, $this->resolveLabel(), $inside);
     }
 
     $uuid = $this->params->get('id', $this->context->get('_visual_id'));
@@ -34,7 +35,7 @@ class VisualEdit extends Tags
       return '';
     }
 
-    return $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType());
+    return $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType(), $inside);
   }
 
   /**
@@ -50,9 +51,10 @@ class VisualEdit extends Tags
     }
 
     $field = $this->params->get('field');
+    $inside = $this->params->bool('outline-inside', false);
 
     if ($field !== null) {
-      return '<div ' . $this->buildFieldAttr((string) $field, $this->resolveLabel()) . '>' . $content . '</div>';
+      return '<div ' . $this->buildFieldAttr((string) $field, $this->resolveLabel(), $inside) . '>' . $content . '</div>';
     }
 
     $uuid = $this->params->get('id', $this->context->get('_visual_id'));
@@ -61,7 +63,7 @@ class VisualEdit extends Tags
       return $content;
     }
 
-    return '<div ' . $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType()) . '>' . $content . '</div>';
+    return '<div ' . $this->buildAttr((string) $uuid, $this->resolveLabel(), $this->resolveType(), $inside) . '>' . $content . '</div>';
   }
 
   private function resolveLabel(): string
@@ -82,7 +84,7 @@ class VisualEdit extends Tags
     return (string) $this->context->get('type', '');
   }
 
-  private function buildFieldAttr(string $fieldPath, string $label): string
+  private function buildFieldAttr(string $fieldPath, string $label, bool $inside = false): string
   {
     $attr = 'data-sid-field="' . e($fieldPath) . '"';
 
@@ -90,10 +92,14 @@ class VisualEdit extends Tags
       $attr .= ' data-sid-label="' . e($label) . '"';
     }
 
+    if ($inside) {
+      $attr .= ' data-sid-inside';
+    }
+
     return $attr;
   }
 
-  private function buildAttr(string $uuid, string $label, string $type = ''): string
+  private function buildAttr(string $uuid, string $label, string $type = '', bool $inside = false): string
   {
     $attr = 'data-sid="' . e($uuid) . '"';
 
@@ -103,6 +109,10 @@ class VisualEdit extends Tags
 
     if ($type !== '') {
       $attr .= ' data-sid-type="' . e($type) . '"';
+    }
+
+    if ($inside) {
+      $attr .= ' data-sid-inside';
     }
 
     return $attr;
