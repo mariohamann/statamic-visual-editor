@@ -66,18 +66,58 @@ The tooltip label is automatically resolved from the field's Display Name in the
 |---|---|---|
 | _(none)_ | — | Auto-targets the current set by its UUID |
 | `field="handle"` | — | Targets a fixed field by handle (dot notation for nested) |
+| `blueprint="namespace.handle"` | — | Resolve field display names from a specific blueprint (e.g. `collections.jobs`, `globals.settings`). Only needed for the tooltip label — field targeting works without it. Primarily useful in Blade; in Antlers the current entry provides the blueprint automatically. |
 | `outline-inside="true"` | `false` | Draws the highlight outline inside the element border (useful in dense layouts where a 2px outbound outline overlaps neighbours) |
 | `id="uuid"` | — | Override: target a specific set by a known UUID |
 
-### Blade helper
+### Blade usage
 
-For Blade templates, use the `visual_edit()` PHP helper:
+Use Statamic's `Statamic::tag('visual_edit')` fluent API — it supports the same params as the Antlers tag and is a no-op outside Live Preview.
+
+**Set targeting** (equivalent to `{{ visual_edit }}`):
 
 ```blade
-<div {!! visual_edit($uuid, $type) !!}>...</div>
+{{-- $set is an augmented Statamic set; its data includes _visual_id and type --}}
+<div {!! Statamic::tag('visual_edit')->context($set->all())->fetch() !!}>
 ```
 
-Returns an empty string outside of Live Preview. The label is auto-derived as `Str::headline($type)` when `$type` is provided.
+**Field targeting — with a blueprint handle** (no entry object needed):
+
+```blade
+<h1 {!! Statamic::tag('visual_edit')->blueprint('collections.jobs')->field('heading')->fetch() !!}>
+```
+
+Pass the namespaced blueprint handle (`collections.{handle}`, `globals.{handle}`). The addon resolves the field's display name for the tooltip label automatically.
+
+**Field targeting — with an entry object** (if already available in the view):
+
+```blade
+<h1 {!! Statamic::tag('visual_edit')->context(['page' => $entry])->field('heading')->fetch() !!}>
+```
+
+**Field targeting — without label** (CP navigation still works; tooltip label is cosmetic):
+
+```blade
+<h1 {!! Statamic::tag('visual_edit')->field('heading')->fetch() !!}>
+```
+
+**With `outline-inside`**:
+
+```blade
+<div {!! Statamic::tag('visual_edit')->blueprint('collections.jobs')->field('intro')->params(['outline-inside' => true])->fetch() !!}>
+```
+
+> **Note:** In anonymousBlade components you often don't have the entry object — use the `blueprint=` approach instead of trying to pass `$entry` as a prop down through component chains.
+
+#### Low-level UUID helper
+
+For UUID-based set targeting when you already have the raw `_visual_id` value:
+
+```blade
+<div {!! visual_edit($set['_visual_id'] ?? null, $set['type'] ?? null) !!}>
+```
+
+`visual_edit($uuid, $type)` returns a `data-sid` attribute string or an empty string outside Live Preview. It does **not** support field targeting or blueprint label resolution.
 
 ### Pair tag
 

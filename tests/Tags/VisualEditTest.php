@@ -5,6 +5,7 @@ namespace MarioHamann\StatamicVisualEditor\Tests\Tags;
 use Illuminate\Http\Request;
 use MarioHamann\StatamicVisualEditor\Tags\VisualEdit;
 use MarioHamann\StatamicVisualEditor\Tests\TestCase;
+use Statamic\Facades\Blueprint;
 
 class VisualEditTest extends TestCase
 {
@@ -403,5 +404,56 @@ class VisualEditTest extends TestCase
     $this->assertStringNotContainsString('<img', $result);
     $this->assertStringContainsString('data-sid=', $result);
     $this->assertStringContainsString('&quot;', $result);
+  }
+  // -------------------------------------------------------------------------
+  // blueprint= param — label resolution without an entry object
+  // -------------------------------------------------------------------------
+
+  public function test_selfclosing_with_blueprint_param_resolves_label_from_blueprint(): void
+  {
+    $blueprint = Blueprint::make()->setContents([
+      'tabs' => [
+        'main' => [
+          'sections' => [
+            [
+              'fields' => [
+                ['handle' => 'heading', 'field' => ['type' => 'text', 'display' => 'Page Heading']],
+              ],
+            ],
+          ],
+        ],
+      ],
+    ]);
+
+    Blueprint::shouldReceive('find')
+      ->with('collections.articles')
+      ->andReturn($blueprint);
+
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'heading', 'blueprint' => 'collections.articles'],
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringContainsString('data-sid-field="heading"', $result);
+    $this->assertStringContainsString('data-sid-label="Page Heading"', $result);
+  }
+
+  public function test_selfclosing_with_blueprint_param_falls_back_gracefully_when_blueprint_not_found(): void
+  {
+    Blueprint::shouldReceive('find')
+      ->with('collections.nonexistent')
+      ->andReturn(null);
+
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'heading', 'blueprint' => 'collections.nonexistent'],
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringContainsString('data-sid-field="heading"', $result);
+    $this->assertStringNotContainsString('data-sid-label', $result);
   }
 }

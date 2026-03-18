@@ -4,6 +4,7 @@ namespace MarioHamann\StatamicVisualEditor\Tags;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Statamic\Facades\Blueprint;
 use Statamic\Tags\Tags;
 
 class VisualEdit extends Tags
@@ -59,14 +60,26 @@ class VisualEdit extends Tags
 
   private function resolveFieldLabel(string $fieldPath): string
   {
-    $page = $this->context->get('page');
+    $blueprintHandle = $this->params->get('blueprint');
 
-    if (! $page || ! method_exists($page, 'blueprint')) {
+    if ($blueprintHandle) {
+      $blueprint = Blueprint::find((string) $blueprintHandle);
+    } else {
+      $page = $this->context->get('page');
+
+      if (! $page || ! method_exists($page, 'blueprint')) {
+        return '';
+      }
+
+      $blueprint = $page->blueprint();
+    }
+
+    if (! $blueprint) {
       return '';
     }
 
     try {
-      $fields = $page->blueprint()->fields()->all();
+      $fields = $blueprint->fields()->all();
       $segments = explode('.', $fieldPath);
       $firstHandle = array_shift($segments);
 
