@@ -1,14 +1,14 @@
 <?php
 
-namespace Mariohamann\StatamicVisualEditor\Tests;
+namespace MarioHamann\StatamicVisualEditor\Tests;
 
 use Illuminate\Support\Facades\Event;
-use Mariohamann\StatamicVisualEditor\Fieldtypes\AutoUuidFieldtype;
-use Mariohamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
-use Mariohamann\StatamicVisualEditor\Listeners\InjectVisualIdIntoBlueprint;
-use Mariohamann\StatamicVisualEditor\Listeners\StampVisualIds;
-use Mariohamann\StatamicVisualEditor\ServiceProvider;
-use Mariohamann\StatamicVisualEditor\Tags\VisualEdit;
+use MarioHamann\StatamicVisualEditor\Fieldtypes\AutoUuidFieldtype;
+use MarioHamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
+use MarioHamann\StatamicVisualEditor\Listeners\InjectVisualIdIntoBlueprint;
+use MarioHamann\StatamicVisualEditor\Listeners\StampVisualIds;
+use MarioHamann\StatamicVisualEditor\ServiceProvider;
+use MarioHamann\StatamicVisualEditor\Tags\VisualEdit;
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\EntrySaving;
 use Statamic\Events\GlobalVariablesBlueprintFound;

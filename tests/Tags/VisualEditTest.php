@@ -1,10 +1,10 @@
 <?php
 
-namespace Mariohamann\StatamicVisualEditor\Tests\Tags;
+namespace MarioHamann\StatamicVisualEditor\Tests\Tags;
 
 use Illuminate\Http\Request;
-use Mariohamann\StatamicVisualEditor\Tags\VisualEdit;
-use Mariohamann\StatamicVisualEditor\Tests\TestCase;
+use MarioHamann\StatamicVisualEditor\Tags\VisualEdit;
+use MarioHamann\StatamicVisualEditor\Tests\TestCase;
 
 class VisualEditTest extends TestCase
 {

@@ -1,8 +1,8 @@
 <?php
 
-namespace Mariohamann\StatamicVisualEditor\Tests\Listeners;
+namespace MarioHamann\StatamicVisualEditor\Tests\Listeners;
 
-use Mariohamann\StatamicVisualEditor\Tests\TestCase;
+use MarioHamann\StatamicVisualEditor\Tests\TestCase;
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\GlobalVariablesBlueprintFound;
 use Statamic\Facades\Fieldset;

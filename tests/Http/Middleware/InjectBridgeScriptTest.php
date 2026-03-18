@@ -1,11 +1,11 @@
 <?php
 
-namespace Mariohamann\StatamicVisualEditor\Tests\Http\Middleware;
+namespace MarioHamann\StatamicVisualEditor\Tests\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Mariohamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
-use Mariohamann\StatamicVisualEditor\Tests\TestCase;
+use MarioHamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
+use MarioHamann\StatamicVisualEditor\Tests\TestCase;
 
 class InjectBridgeScriptTest extends TestCase
 {

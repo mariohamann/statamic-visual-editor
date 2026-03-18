@@ -16,7 +16,7 @@ composer require mariohamann/statamic-visual-editor
 Publish assets (required on every addon update):
 
 ```bash
-php artisan vendor:publish --provider="Mariohamann\StatamicVisualEditor\ServiceProvider" --force
+php artisan vendor:publish --provider="MarioHamann\StatamicVisualEditor\ServiceProvider" --force
 ```
 
 A settings page is available at **CP → Tools → Visual Editor** to enable or disable the addon.
@@ -113,7 +113,7 @@ vendor/bin/pint addons/mariohamann/statamic-visual-editor/src addons/mariohamann
 cd addons/mariohamann/statamic-visual-editor && npm run build
 
 # 3. Publish to public/
-php artisan vendor:publish --provider="Mariohamann\StatamicVisualEditor\ServiceProvider" --force
+php artisan vendor:publish --provider="MarioHamann\StatamicVisualEditor\ServiceProvider" --force
 
 # 4. PHP tests
 cd addons/mariohamann/statamic-visual-editor && vendor/bin/phpunit

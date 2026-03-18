@@ -2,7 +2,7 @@
   "name": "mariohamann/statamic-visual-editor",
   "autoload": {
     "psr-4": {
-      "Mariohamann\\StatamicVisualEditor\\": "src"
+      "MarioHamann\\StatamicVisualEditor\\": "src"
     },
     "files": [
       "src/helpers.php"
@@ -10,7 +10,7 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "Mariohamann\\StatamicVisualEditor\\Tests\\": "tests"
+      "MarioHamann\\StatamicVisualEditor\\Tests\\": "tests"
     }
   },
   "require": {
@@ -31,7 +31,7 @@
     },
     "laravel": {
       "providers": [
-        "Mariohamann\\StatamicVisualEditor\\ServiceProvider"
+        "MarioHamann\\StatamicVisualEditor\\ServiceProvider"
       ]
     }
   },

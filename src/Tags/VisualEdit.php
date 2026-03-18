@@ -1,6 +1,6 @@
 <?php
 
-namespace Mariohamann\StatamicVisualEditor\Tags;
+namespace MarioHamann\StatamicVisualEditor\Tags;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
