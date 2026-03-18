@@ -168,4 +168,40 @@ class InjectBridgeScriptTest extends TestCase
     // The fake </body> inside the comment must remain untouched.
     $this->assertStringContainsString('<!-- </body> fake -->', $content);
   }
+
+  // -------------------------------------------------------------------------
+  // Non-HTML responses
+  // -------------------------------------------------------------------------
+
+  public function test_middleware_does_not_modify_json_response_without_body_tag(): void
+  {
+    $middleware = $this->makeMiddleware(livePreview: true);
+    $request = $this->makeRequest();
+    $json = '{"key":"value","nested":{"items":[1,2,3]}}';
+
+    $jsonResponse = new Response($json, 200, ['Content-Type' => 'application/json']);
+    $response = $middleware->handle($request, fn() => $jsonResponse);
+
+    $this->assertSame($json, $response->getContent());
+    $this->assertStringNotContainsString('<script', $response->getContent());
+  }
+
+  // -------------------------------------------------------------------------
+  // Case sensitivity of </body> tag matching
+  // -------------------------------------------------------------------------
+
+  public function test_middleware_does_not_inject_when_body_closing_tag_is_uppercase(): void
+  {
+    // strrpos() is case-sensitive; uppercase </BODY> is not matched.
+    // This test documents the known limitation: valid but uncommon HTML with
+    // an uppercase closing tag will not have the bridge script injected.
+    $middleware = $this->makeMiddleware(livePreview: true);
+    $request = $this->makeRequest();
+    $html = '<HTML><BODY><p>Hello</p></BODY></HTML>';
+
+    $response = $middleware->handle($request, fn() => $this->makeHtmlResponse($html));
+
+    $this->assertStringNotContainsString('<script', $response->getContent());
+    $this->assertSame($html, $response->getContent());
+  }
 }

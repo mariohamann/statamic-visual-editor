@@ -33,7 +33,7 @@ class VisualEdit extends Tags
     $field = $this->params->get('field');
     $inside = $this->params->bool('outline-inside', false);
 
-    if ($field !== null) {
+    if ($field !== null && (string) $field !== '') {
       $attr = $this->buildFieldAttr((string) $field, $this->resolveFieldLabel((string) $field), $inside);
 
       return $isPair ? '<div ' . $attr . '>' . $content . '</div>' : $attr;

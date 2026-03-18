@@ -8,344 +8,400 @@ use Mariohamann\StatamicVisualEditor\Tests\TestCase;
 
 class VisualEditTest extends TestCase
 {
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
 
-    private function makeTag(
-        array $context = [],
-        array $params = [],
-        bool $livePreview = false,
-        string $content = '',
-        bool $isPair = false
-    ): VisualEdit {
-        $tag = new class($livePreview) extends VisualEdit
-        {
-            public function __construct(private bool $livePreviewEnabled) {}
-
-            protected function isLivePreview(): bool
-            {
-                return $this->livePreviewEnabled;
-            }
-
-            public function parse($data = []): mixed
-            {
-                return $this->content;
-            }
-        };
-
-        // Pair behaviour is driven by content being non-empty (mirrors Statamic's setContent()).
-        $tag->setProperties([
-            'parser' => null,
-            'content' => $isPair ? ($content ?: 'pair-content') : $content,
-            'context' => $context,
-            'params' => $params,
-            'tag' => 'visual_edit',
-            'tag_method' => 'index',
-        ]);
-
-        return $tag;
-    }
-
-    // -------------------------------------------------------------------------
-    // {{ visual_edit }} self-closing — Live Preview active
-    // -------------------------------------------------------------------------
-
-    public function test_selfclosing_outputs_data_sid_during_live_preview(): void
+  private function makeTag(
+    array $context = [],
+    array $params = [],
+    bool $livePreview = false,
+    string $content = '',
+    bool $isPair = false
+  ): VisualEdit {
+    $tag = new class($livePreview) extends VisualEdit
     {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: true,
-        );
+      public function __construct(private bool $livePreviewEnabled) {}
 
-        $this->assertSame('data-sid="abc-123"', $tag->index());
-    }
+      protected function isLivePreview(): bool
+      {
+        return $this->livePreviewEnabled;
+      }
 
-    public function test_selfclosing_includes_label_from_type_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => 'text_block'],
-            livePreview: true,
-        );
+      public function parse($data = []): mixed
+      {
+        return $this->content;
+      }
+    };
 
-        $this->assertSame('data-sid="abc-123" data-sid-label="Text Block" data-sid-type="text_block"', $tag->index());
-    }
+    // Pair behaviour is driven by content being non-empty (mirrors Statamic's setContent()).
+    $tag->setProperties([
+      'parser' => null,
+      'content' => $isPair ? ($content ?: 'pair-content') : $content,
+      'context' => $context,
+      'params' => $params,
+      'tag' => 'visual_edit',
+      'tag_method' => 'index',
+    ]);
 
-    public function test_selfclosing_includes_raw_type_as_data_sid_type(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => 'text'],
-            livePreview: true,
-        );
+    return $tag;
+  }
 
-        $this->assertStringContainsString('data-sid-type="text"', $tag->index());
-        $this->assertStringContainsString('data-sid-label="Text"', $tag->index());
-    }
+  // -------------------------------------------------------------------------
+  // {{ visual_edit }} self-closing — Live Preview active
+  // -------------------------------------------------------------------------
 
-    public function test_selfclosing_explicit_id_param_overrides_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'from-context'],
-            params: ['id' => 'from-param'],
-            livePreview: true,
-        );
+  public function test_selfclosing_outputs_data_sid_during_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: true,
+    );
 
-        $this->assertStringContainsString('data-sid="from-param"', $tag->index());
-    }
+    $this->assertSame('data-sid="abc-123"', $tag->index());
+  }
 
-    public function test_selfclosing_omits_label_when_no_type_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: true,
-        );
+  public function test_selfclosing_includes_label_from_type_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => 'text_block'],
+      livePreview: true,
+    );
 
-        $this->assertStringNotContainsString('data-sid-label', $tag->index());
-    }
+    $this->assertSame('data-sid="abc-123" data-sid-label="Text Block" data-sid-type="text_block"', $tag->index());
+  }
 
-    // -------------------------------------------------------------------------
-    // {{ visual_edit }} self-closing — outside Live Preview / no UUID
-    // -------------------------------------------------------------------------
+  public function test_selfclosing_includes_raw_type_as_data_sid_type(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => 'text'],
+      livePreview: true,
+    );
 
-    public function test_selfclosing_returns_empty_string_outside_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: false,
-        );
+    $this->assertStringContainsString('data-sid-type="text"', $tag->index());
+    $this->assertStringContainsString('data-sid-label="Text"', $tag->index());
+  }
 
-        $this->assertSame('', $tag->index());
-    }
+  public function test_selfclosing_explicit_id_param_overrides_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'from-context'],
+      params: ['id' => 'from-param'],
+      livePreview: true,
+    );
 
-    public function test_selfclosing_returns_empty_string_when_no_visual_id_in_context(): void
-    {
-        $tag = $this->makeTag(
-            context: [],
-            livePreview: true,
-        );
+    $this->assertStringContainsString('data-sid="from-param"', $tag->index());
+  }
 
-        $this->assertSame('', $tag->index());
-    }
+  public function test_selfclosing_omits_label_when_no_type_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: true,
+    );
 
-    public function test_selfclosing_returns_empty_string_outside_live_preview_with_no_context(): void
-    {
-        $tag = $this->makeTag(livePreview: false);
+    $this->assertStringNotContainsString('data-sid-label', $tag->index());
+  }
 
-        $this->assertSame('', $tag->index());
-    }
+  // -------------------------------------------------------------------------
+  // {{ visual_edit }} self-closing — outside Live Preview / no UUID
+  // -------------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // {{ visual_edit }} self-closing — HTML escaping
-    // -------------------------------------------------------------------------
+  public function test_selfclosing_returns_empty_string_outside_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: false,
+    );
 
-    public function test_selfclosing_html_escapes_uuid(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => '"><script>'],
-            livePreview: true,
-        );
+    $this->assertSame('', $tag->index());
+  }
 
-        $this->assertStringNotContainsString('<script>', $tag->index());
-        $this->assertStringContainsString('data-sid=', $tag->index());
-    }
+  public function test_selfclosing_returns_empty_string_when_no_visual_id_in_context(): void
+  {
+    $tag = $this->makeTag(
+      context: [],
+      livePreview: true,
+    );
 
-    public function test_selfclosing_html_escapes_label(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123', 'type' => '"><script>'],
-            livePreview: true,
-        );
+    $this->assertSame('', $tag->index());
+  }
 
-        $this->assertStringNotContainsString('<script>', $tag->index());
-        $this->assertStringContainsString('data-sid-label=', $tag->index());
-    }
+  public function test_selfclosing_returns_empty_string_outside_live_preview_with_no_context(): void
+  {
+    $tag = $this->makeTag(livePreview: false);
 
-    // -------------------------------------------------------------------------
-    // {{ visual_edit }}...{{ /visual_edit }} pair tag
-    // -------------------------------------------------------------------------
+    $this->assertSame('', $tag->index());
+  }
 
-    public function test_pair_wraps_content_in_div_during_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: true,
-            content: 'hello world',
-            isPair: true,
-        );
+  // -------------------------------------------------------------------------
+  // {{ visual_edit }} self-closing — HTML escaping
+  // -------------------------------------------------------------------------
 
-        $result = $tag->index();
+  public function test_selfclosing_html_escapes_uuid(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => '"><script>'],
+      livePreview: true,
+    );
 
-        $this->assertStringStartsWith('<div data-sid="abc-123">', $result);
-        $this->assertStringEndsWith('</div>', $result);
-        $this->assertStringContainsString('hello world', $result);
-    }
+    $this->assertStringNotContainsString('<script>', $tag->index());
+    $this->assertStringContainsString('data-sid=', $tag->index());
+  }
 
-    public function test_pair_passes_through_content_outside_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'abc-123'],
-            livePreview: false,
-            content: 'hello world',
-            isPair: true,
-        );
+  public function test_selfclosing_html_escapes_label(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123', 'type' => '"><script>'],
+      livePreview: true,
+    );
 
-        $this->assertSame('hello world', $tag->index());
-    }
+    $this->assertStringNotContainsString('<script>', $tag->index());
+    $this->assertStringContainsString('data-sid-label=', $tag->index());
+  }
 
-    public function test_pair_passes_through_content_when_no_visual_id(): void
-    {
-        $tag = $this->makeTag(
-            context: [],
-            livePreview: true,
-            content: 'hello world',
-            isPair: true,
-        );
+  // -------------------------------------------------------------------------
+  // {{ visual_edit }}...{{ /visual_edit }} pair tag
+  // -------------------------------------------------------------------------
 
-        $this->assertSame('hello world', $tag->index());
-    }
+  public function test_pair_wraps_content_in_div_during_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: true,
+      content: 'hello world',
+      isPair: true,
+    );
 
-    // -------------------------------------------------------------------------
-    // visual_edit() Blade helper
-    // -------------------------------------------------------------------------
+    $result = $tag->index();
 
-    public function test_blade_helper_returns_attr_string_during_live_preview(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+    $this->assertStringStartsWith('<div data-sid="abc-123">', $result);
+    $this->assertStringEndsWith('</div>', $result);
+    $this->assertStringContainsString('hello world', $result);
+  }
 
-        $this->assertSame('data-sid="abc-123"', visual_edit('abc-123'));
-    }
+  public function test_pair_passes_through_content_outside_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'abc-123'],
+      livePreview: false,
+      content: 'hello world',
+      isPair: true,
+    );
 
-    public function test_blade_helper_returns_empty_string_outside_live_preview(): void
-    {
-        Request::macro('isLivePreview', fn () => false);
+    $this->assertSame('hello world', $tag->index());
+  }
 
-        $this->assertSame('', visual_edit('abc-123'));
-    }
+  public function test_pair_passes_through_content_when_no_visual_id(): void
+  {
+    $tag = $this->makeTag(
+      context: [],
+      livePreview: true,
+      content: 'hello world',
+      isPair: true,
+    );
 
-    public function test_blade_helper_returns_empty_string_when_uuid_is_null(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+    $this->assertSame('hello world', $tag->index());
+  }
 
-        $this->assertSame('', visual_edit(null));
-    }
+  // -------------------------------------------------------------------------
+  // visual_edit() Blade helper
+  // -------------------------------------------------------------------------
 
-    public function test_blade_helper_includes_type_when_provided(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+  public function test_blade_helper_returns_attr_string_during_live_preview(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-        $this->assertSame('data-sid="abc-123" data-sid-label="Text" data-sid-type="text"', visual_edit('abc-123', 'text'));
-    }
+    $this->assertSame('data-sid="abc-123"', visual_edit('abc-123'));
+  }
 
-    public function test_blade_helper_omits_label_when_not_provided(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+  public function test_blade_helper_returns_empty_string_outside_live_preview(): void
+  {
+    Request::macro('isLivePreview', fn() => false);
 
-        $this->assertStringNotContainsString('data-sid-label', visual_edit('abc-123'));
-    }
+    $this->assertSame('', visual_edit('abc-123'));
+  }
 
-    public function test_blade_helper_html_escapes_uuid(): void
-    {
-        Request::macro('isLivePreview', fn () => true);
+  public function test_blade_helper_returns_empty_string_when_uuid_is_null(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-        $result = visual_edit('"><script>');
+    $this->assertSame('', visual_edit(null));
+  }
 
-        $this->assertStringNotContainsString('<script>', $result);
-        $this->assertStringContainsString('data-sid=', $result);
-    }
+  public function test_blade_helper_includes_type_when_provided(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-    // -------------------------------------------------------------------------
-    // {{ visual_edit }} self-closing — field= parameter (manual field targeting)
-    // -------------------------------------------------------------------------
+    $this->assertSame('data-sid="abc-123" data-sid-label="Text" data-sid-type="text"', visual_edit('abc-123', 'text'));
+  }
 
-    public function test_selfclosing_with_field_param_outputs_data_sid_field(): void
-    {
-        $tag = $this->makeTag(
-            livePreview: true,
-            params: ['field' => 'hero_title'],
-        );
+  public function test_blade_helper_omits_label_when_not_provided(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-        $this->assertSame('data-sid-field="hero_title"', $tag->index());
-    }
+    $this->assertStringNotContainsString('data-sid-label', visual_edit('abc-123'));
+  }
 
-    public function test_selfclosing_with_dot_notation_field_param_outputs_dot_notation(): void
-    {
-        $tag = $this->makeTag(
-            livePreview: true,
-            params: ['field' => 'page_info.author'],
-        );
+  public function test_blade_helper_html_escapes_uuid(): void
+  {
+    Request::macro('isLivePreview', fn() => true);
 
-        $this->assertSame('data-sid-field="page_info.author"', $tag->index());
-    }
+    $result = visual_edit('"><script>');
 
-    public function test_selfclosing_with_field_param_does_not_output_data_sid(): void
-    {
-        $tag = $this->makeTag(
-            context: ['_visual_id' => 'some-uuid'],
-            livePreview: true,
-            params: ['field' => 'hero_title'],
-        );
+    $this->assertStringNotContainsString('<script>', $result);
+    $this->assertStringContainsString('data-sid=', $result);
+  }
 
-        $result = $tag->index();
+  // -------------------------------------------------------------------------
+  // {{ visual_edit }} self-closing — field= parameter (manual field targeting)
+  // -------------------------------------------------------------------------
 
-        $this->assertStringContainsString('data-sid-field="hero_title"', $result);
-        $this->assertStringNotContainsString('data-sid=', $result);
-    }
+  public function test_selfclosing_with_field_param_outputs_data_sid_field(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+    );
 
-    public function test_selfclosing_with_field_param_returns_empty_outside_live_preview(): void
-    {
-        $tag = $this->makeTag(
-            livePreview: false,
-            params: ['field' => 'hero_title'],
-        );
+    $this->assertSame('data-sid-field="hero_title"', $tag->index());
+  }
 
-        $this->assertSame('', $tag->index());
-    }
+  public function test_selfclosing_with_dot_notation_field_param_outputs_dot_notation(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'page_info.author'],
+    );
 
-    public function test_selfclosing_with_field_param_html_escapes_field_path(): void
-    {
-        $tag = $this->makeTag(
-            livePreview: true,
-            params: ['field' => '"><script>'],
-        );
+    $this->assertSame('data-sid-field="page_info.author"', $tag->index());
+  }
 
-        $result = $tag->index();
+  public function test_selfclosing_with_field_param_does_not_output_data_sid(): void
+  {
+    $tag = $this->makeTag(
+      context: ['_visual_id' => 'some-uuid'],
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+    );
 
-        $this->assertStringNotContainsString('<script>', $result);
-        $this->assertStringContainsString('data-sid-field=', $result);
-    }
+    $result = $tag->index();
 
-    // -------------------------------------------------------------------------
-    // {{ visual_edit }}...{{ /visual_edit }} pair — field= parameter
-    // -------------------------------------------------------------------------
+    $this->assertStringContainsString('data-sid-field="hero_title"', $result);
+    $this->assertStringNotContainsString('data-sid=', $result);
+  }
 
-    public function test_pair_with_field_param_wraps_content_with_data_sid_field(): void
-    {
-        $tag = $this->makeTag(
-            livePreview: true,
-            params: ['field' => 'hero_title'],
-            content: 'My Hero Title',
-            isPair: true,
-        );
+  public function test_selfclosing_with_field_param_returns_empty_outside_live_preview(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: false,
+      params: ['field' => 'hero_title'],
+    );
 
-        $result = $tag->index();
+    $this->assertSame('', $tag->index());
+  }
 
-        $this->assertStringContainsString('data-sid-field="hero_title"', $result);
-        $this->assertStringContainsString('My Hero Title', $result);
-        $this->assertStringStartsWith('<div ', $result);
-        $this->assertStringEndsWith('</div>', $result);
-    }
+  public function test_selfclosing_with_field_param_html_escapes_field_path(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => '"><script>'],
+    );
 
-    public function test_pair_with_field_param_does_not_output_data_sid(): void
-    {
-        $tag = $this->makeTag(
-            livePreview: true,
-            params: ['field' => 'hero_title'],
-            content: 'content',
-            isPair: true,
-        );
+    $result = $tag->index();
 
-        $result = $tag->index();
+    $this->assertStringNotContainsString('<script>', $result);
+    $this->assertStringContainsString('data-sid-field=', $result);
+  }
 
-        $this->assertStringNotContainsString('data-sid="', $result);
-    }
+  // -------------------------------------------------------------------------
+  // {{ visual_edit }}...{{ /visual_edit }} pair — field= parameter
+  // -------------------------------------------------------------------------
+
+  public function test_pair_with_field_param_wraps_content_with_data_sid_field(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+      content: 'My Hero Title',
+      isPair: true,
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringContainsString('data-sid-field="hero_title"', $result);
+    $this->assertStringContainsString('My Hero Title', $result);
+    $this->assertStringStartsWith('<div ', $result);
+    $this->assertStringEndsWith('</div>', $result);
+  }
+
+  public function test_pair_with_field_param_does_not_output_data_sid(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'hero_title'],
+      content: 'content',
+      isPair: true,
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringNotContainsString('data-sid="', $result);
+  }
+
+  // -------------------------------------------------------------------------
+  // Edge cases: empty field path, 3+ dot segments, malformed UUID
+  // -------------------------------------------------------------------------
+
+  public function test_selfclosing_with_empty_field_param_returns_empty_string(): void
+  {
+    // An empty field path has no meaningful target; should be treated like
+    // no field param being set at all.
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => ''],
+    );
+
+    $this->assertSame('', $tag->index());
+  }
+
+  public function test_pair_with_empty_field_param_returns_content_only(): void
+  {
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => ''],
+      content: 'hello',
+      isPair: true,
+    );
+
+    // No _visual_id in context either, so falls through to returning content.
+    $this->assertSame('hello', $tag->index());
+  }
+
+  public function test_selfclosing_with_three_segment_dot_notation_field_param(): void
+  {
+    // 3+ segment paths (e.g. section.group.field) are passed through to the
+    // data-sid-field attribute verbatim; label resolution only descends two levels.
+    $tag = $this->makeTag(
+      livePreview: true,
+      params: ['field' => 'section.group.sub_field'],
+    );
+
+    $this->assertStringContainsString('data-sid-field="section.group.sub_field"', $tag->index());
+  }
+
+  public function test_selfclosing_with_malformed_uuid_is_html_escaped(): void
+  {
+    // A _visual_id containing HTML-unsafe characters must not produce raw HTML.
+    $tag = $this->makeTag(
+      context: ['_visual_id' => '"><img src=x onerror=alert(1)>'],
+      livePreview: true,
+    );
+
+    $result = $tag->index();
+
+    $this->assertStringNotContainsString('<img', $result);
+    $this->assertStringContainsString('data-sid=', $result);
+    $this->assertStringContainsString('&quot;', $result);
+  }
 }
