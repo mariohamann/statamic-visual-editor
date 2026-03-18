@@ -623,6 +623,9 @@ export function initCp(win = window) {
         el = el.parentElement;
       }
 
+      // Clicked on a generic CP area — dismiss any stale SVE active state.
+      win.document.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((active) => active.removeAttribute(ACTIVE_ATTR));
+
       return;
     }
 
@@ -644,6 +647,11 @@ export function initCp(win = window) {
       message.afterSetUid =
         prevBardSet?.querySelector('[data-visual-id]')?.getAttribute('data-visual-id') ?? null;
     }
+
+    // Sync the CP active state immediately so the clicked set is outlined
+    // without waiting for a round-trip message from the preview to trigger handleFocus.
+    win.document.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((active) => active.removeAttribute(ACTIVE_ATTR));
+    set.setAttribute(ACTIVE_ATTR, '');
 
     sendToPreview(message, win);
   };

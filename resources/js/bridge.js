@@ -219,6 +219,10 @@ export function createClickHandler(win) {
     const target = event.target.closest(`[${SID_ATTR}], [${SID_FIELD_ATTR}]`);
 
     if (!target) {
+      win.document.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => {
+        el.removeAttribute(ACTIVE_ATTR);
+      });
+
       return;
     }
 
