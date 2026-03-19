@@ -2,7 +2,7 @@
 
 return [
 
-  /*
+    /*
     |--------------------------------------------------------------------------
     | Enable Visual Editor
     |--------------------------------------------------------------------------
@@ -11,6 +11,6 @@ return [
     | Preview responses and all `visual_edit` tags/helpers become no-ops.
     |
     */
-  'enabled' => true,
+    'enabled' => true,
 
 ];
