@@ -11,7 +11,7 @@ Drop a tag on each component and editors always know exactly what they're editin
 
 ## Demo
 
-<video src="https://github.com/user-attachments/assets/97ec557d-2642-4e74-87df-fb365a03154b"></video>
+https://github.com/user-attachments/assets/97ec557d-2642-4e74-87df-fb365a03154b
 
 ## Requirements
 
