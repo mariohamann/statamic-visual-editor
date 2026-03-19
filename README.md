@@ -34,6 +34,20 @@ A settings page is available at **CP → Tools → Visual Editor** to enable or 
 
 ---
 
+## Laravel Boost Support
+
+This addon includes **three dedicated AI agent skills** to help you annotate templates with Visual Editor tags:
+
+1. **`visual-editor-research`** — Audits your project to find where annotations should be added, scanning blueprints, fieldsets, and templates to map sets to partials.
+2. **`visual-editor-antlers`** — Provides implementation guidance for adding tags to Antlers templates, with examples and parameter reference.
+3. **`visual-editor-blade`** — Provides implementation guidance for adding tags to Blade templates, including component patterns and blueprint resolution.
+
+When you install/update the addon in a Laravel Boost-enabled project (`php artisan boost:update`), these skills are automatically made available to your IDE's AI agent. The addon also extends the project's `AGENTS.md` with core concepts and activation triggers.
+
+For details, see the [Boost documentation](https://laravel.com/docs/13.x/boost.md).
+
+---
+
 ## Concepts
 
 The addon provides a single tag — `{{ visual_edit }}` — that you place on HTML elements in your templates. During Live Preview it outputs data attributes that power bidirectional click-and-hover sync between the preview and the CP. Outside Live Preview it outputs nothing.
@@ -190,10 +204,10 @@ All parameters work in both Antlers and Blade (via the fluent API).
 
 ### How it works
 
-1. **Blueprint injection** — `InjectVisualIdIntoBlueprint` adds a hidden `_visual_id` field to every Replicator, Bard, and Grid set when a blueprint is loaded.
-2. **UUID stamping** — `StampVisualIds` generates stable UUIDs on save for any item missing a `_visual_id`.
+1. **Blueprint injection** — `InjectVisualIdIntoBlueprint` adds a hidden `_visual_id` field (type `auto_uuid`) to every Replicator, Bard, and Grid set when a blueprint is loaded.
+2. **Ephemeral UUID generation** — When the CP form loads, `AutoUuidFieldtype::preProcess()` generates a fresh UUID in-memory for any set that doesn't already have one. UUIDs are never persisted — `StripVisualIds` removes any `_visual_id` values from the data before saving.
 3. **Template annotation** — `{{ visual_edit }}` outputs `data-sid="{uuid}"` (set targeting) or `data-sid-field="{path}"` (field targeting) plus optional label/type attributes.
 4. **Bridge script** — `InjectBridgeScript` middleware injects `bridge.js` into the Live Preview iframe. It handles click/hover events and communicates with the CP via `postMessage`.
 5. **CP script** — `addon.js` (loaded via Vite) listens for messages from the iframe, expands collapsed sets, switches tabs, scrolls, and highlights the target field.
 
-Hover sync works in both directions for both mechanisms.
+Because the CP form and the Live Preview share the same in-memory form state, the ephemeral UUIDs are identical on both sides for the duration of the editing session — no persistence is needed. Hover sync works in both directions for both mechanisms.
