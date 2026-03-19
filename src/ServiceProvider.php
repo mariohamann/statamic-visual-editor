@@ -5,7 +5,7 @@ namespace MarioHamann\StatamicVisualEditor;
 use MarioHamann\StatamicVisualEditor\Fieldtypes\AutoUuidFieldtype;
 use MarioHamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
 use MarioHamann\StatamicVisualEditor\Listeners\InjectVisualIdIntoBlueprint;
-use MarioHamann\StatamicVisualEditor\Listeners\StampVisualIds;
+use MarioHamann\StatamicVisualEditor\Listeners\StripVisualIds;
 use MarioHamann\StatamicVisualEditor\Tags\VisualEdit;
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\EntrySaving;
@@ -31,10 +31,10 @@ class ServiceProvider extends AddonServiceProvider
             InjectVisualIdIntoBlueprint::class,
         ],
         EntrySaving::class => [
-            StampVisualIds::class,
+            StripVisualIds::class,
         ],
         GlobalVariablesSaving::class => [
-            StampVisualIds::class,
+            StripVisualIds::class,
         ],
     ];
 

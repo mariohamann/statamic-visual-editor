@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Event;
 use MarioHamann\StatamicVisualEditor\Fieldtypes\AutoUuidFieldtype;
 use MarioHamann\StatamicVisualEditor\Http\Middleware\InjectBridgeScript;
 use MarioHamann\StatamicVisualEditor\Listeners\InjectVisualIdIntoBlueprint;
-use MarioHamann\StatamicVisualEditor\Listeners\StampVisualIds;
+use MarioHamann\StatamicVisualEditor\Listeners\StripVisualIds;
 use MarioHamann\StatamicVisualEditor\ServiceProvider;
 use MarioHamann\StatamicVisualEditor\Tags\VisualEdit;
 use Statamic\Events\EntryBlueprintFound;
@@ -60,18 +60,18 @@ class ServiceProviderTest extends TestCase
         Event::assertListening(GlobalVariablesBlueprintFound::class, InjectVisualIdIntoBlueprint::class);
     }
 
-    public function test_stamp_visual_ids_listener_registered_for_entry_saving(): void
+    public function test_strip_visual_ids_listener_registered_for_entry_saving(): void
     {
         Event::fake();
 
-        Event::assertListening(EntrySaving::class, StampVisualIds::class);
+        Event::assertListening(EntrySaving::class, StripVisualIds::class);
     }
 
-    public function test_stamp_visual_ids_listener_registered_for_global_variables_saving(): void
+    public function test_strip_visual_ids_listener_registered_for_global_variables_saving(): void
     {
         Event::fake();
 
-        Event::assertListening(GlobalVariablesSaving::class, StampVisualIds::class);
+        Event::assertListening(GlobalVariablesSaving::class, StripVisualIds::class);
     }
 
     public function test_middleware_is_registered_in_web_group(): void
