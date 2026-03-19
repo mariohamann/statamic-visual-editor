@@ -6,7 +6,11 @@ export const SELECTORS = {
   // Bard sets are Tiptap node views; Statamic 6 renders them with [data-node-view-wrapper].
   // There is no [data-bard-set] attribute in the actual CP DOM.
   bardSet: '[data-node-view-wrapper]',
-  anySet: '[data-replicator-set], [data-node-view-wrapper]',
+  // Grid rows are stamped with [data-grid-row] by stampGridRows() — they have no
+  // native Statamic attribute. Detection relies on the structural pattern: a
+  // parent element whose direct <header> child contains a [data-drag-handle] button.
+  gridRow: '[data-grid-row]',
+  anySet: '[data-replicator-set], [data-node-view-wrapper], [data-grid-row]',
   // Actual toggle: a <button type="button"> that is a direct child of the <header>
   // inside the set. Neither .replicator-set-header nor .bard-set-header exist.
   headerToggle: 'header > button[type="button"]',
@@ -19,6 +23,47 @@ const HIGHLIGHT_DURATION = 2000; // ms — matches the sve-highlight-pulse @keyf
 // Defer scroll/highlight until after this period so scrollIntoView uses the final layout.
 // Update this if Statamic's collapse transition duration ever changes.
 const COLLAPSE_SETTLE_MS = 300;
+
+/**
+ * Walks up from a [data-visual-id] input looking for a Grid row container.
+ * Grid rows are identified structurally: the nearest ancestor that has a
+ * direct <header> child containing a [data-drag-handle] element.
+ * This is more robust than matching class names, which can change between
+ * Statamic/Tailwind versions.
+ */
+function findGridRow(input) {
+  let el = input.parentElement;
+
+  while (el) {
+    const header = el.querySelector(':scope > header');
+
+    if (header && header.querySelector('[data-drag-handle]')) {
+      return el;
+    }
+
+    el = el.parentElement;
+  }
+
+  return null;
+}
+
+/**
+ * Stamps [data-grid-row] onto any Grid row containers that contain a
+ * [data-visual-id] input but are not already within a known set element.
+ * Called eagerly in initCp and again via MutationObserver when the DOM changes
+ * (e.g. Vue renders new Grid rows after navigation or field expansion).
+ */
+export function stampGridRows(root = document) {
+  root.querySelectorAll(SELECTORS.visualIdInput).forEach((input) => {
+    if (!input.closest(SELECTORS.anySet)) {
+      const row = findGridRow(input);
+
+      if (row && !row.hasAttribute('data-grid-row')) {
+        row.setAttribute('data-grid-row', '');
+      }
+    }
+  });
+}
 
 export function findSetByUid(uid, doc = document) {
   const inputs = doc.querySelectorAll(SELECTORS.visualIdInput);
@@ -526,6 +571,12 @@ export function initCp(win = window) {
   style.id = '__sve-cp-styles';
   style.textContent = CP_STYLES;
   win.document.head.appendChild(style);
+
+  // Stamp Grid rows immediately and re-stamp whenever the DOM changes
+  // (Vue renders Grid rows asynchronously after page load / field expansion).
+  stampGridRows(win.document);
+  const gridObserver = new win.MutationObserver(() => stampGridRows(win.document));
+  gridObserver.observe(win.document.body, { childList: true, subtree: true });
 
   const listener = createMessageListener(win.document);
 

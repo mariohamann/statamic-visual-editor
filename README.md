@@ -23,26 +23,74 @@ A settings page is available at **CP → Tools → Visual Editor** to enable or 
 
 ---
 
-## Quick start: Replicator, Bard & Grid sets
+## Concepts
 
-The addon automatically assigns a stable UUID to every set — no blueprint changes required. Add `{{ visual_edit }}` to the outermost element of each set partial:
+The addon provides a single tag — `{{ visual_edit }}` — that you place on HTML elements in your templates. During Live Preview it outputs data attributes that power bidirectional click-and-hover sync between the preview and the CP. Outside Live Preview it outputs nothing.
+
+There are two targeting modes:
+
+| Mode | What it targets | How it works |
+|------|----------------|--------------|
+| **Set targeting** | Replicator, Bard & Grid items | Links each rendered item to its CP set via an auto-generated UUID |
+| **Field targeting** | Fixed blueprint fields (title, SEO, etc.) | Links any element to a CP field by its handle |
+
+Both modes are fully bidirectional: clicking or hovering in the preview highlights the CP field, and vice versa.
+
+---
+
+## Set targeting
+
+Targets individual Replicator, Bard, or Grid items. The addon automatically adds a hidden `_visual_id` field to every set in your blueprints and stamps a stable UUID on save — **no blueprint changes required**. You only need to re-save existing entries once so UUIDs get generated.
+
+### Antlers
+
+Add `{{ visual_edit }}` to the outermost element of each set partial. The tag reads `_visual_id` and `type` from the current context automatically:
 
 ```antlers
-{{# resources/views/page_builder/_text.antlers.html #}}
+{{# Replicator / Bard set partial #}}
 <div class="..." {{ visual_edit }}>
   {{ text }}
 </div>
 ```
 
-That's it. During Live Preview, clicking the element expands the matching set in the CP, scrolls to it, and highlights it. In production the tag outputs nothing.
+```antlers
+{{# Grid rows #}}
+{{ links }}
+  <li {{ visual_edit }}>
+    <a href="{{ link_url }}">{{ label }}</a>
+  </li>
+{{ /links }}
+```
 
-The same `{{ visual_edit }}` tag works identically for Replicator, Bard, and Grid sets.
+### Blade
+
+Use `Statamic::tag('visual_edit')` with `->context($item->all())` to pass the set/row data. The tag reads `_visual_id` and `type` from the context, just like in Antlers:
+
+```blade
+{{-- Replicator / Bard set --}}
+<div {!! Statamic::tag('visual_edit')->context($set->all())->fetch() !!}>
+    {!! $set->text !!}
+</div>
+```
+
+```blade
+{{-- Grid rows --}}
+@foreach ($rows as $row)
+    <li {!! Statamic::tag('visual_edit')->context($row->all())->fetch() !!}>
+        {!! (string) ($row->rule ?? '') !!}
+    </li>
+@endforeach
+```
+
+> **Important:** Always use `{!! !!}` (unescaped output), not `{{ }}`. The tag returns raw HTML attributes.
 
 ---
 
 ## Field targeting
 
-For fixed fields — headings, SEO metadata — annotate any element with `field=` using the field's handle. The CP will jump directly to that field when clicked, switching tabs automatically if needed.
+Targets fixed blueprint fields — titles, SEO metadata, or any field that isn't inside a Replicator/Bard/Grid. The CP jumps directly to the field when clicked, switching tabs automatically if needed.
+
+### Antlers
 
 ```antlers
 {{# Top-level field #}}
@@ -52,76 +100,36 @@ For fixed fields — headings, SEO metadata — annotate any element with `field
 <p {{ visual_edit field="page_info.author" }}>{{ page_info:author }}</p>
 ```
 
-The tooltip label is automatically resolved from the field's Display Name in the blueprint. Both mechanisms are bidirectional — hovering a field in the CP highlights the corresponding element in the preview, and vice versa.
+The tooltip label is resolved from the field's Display Name in the current entry's blueprint automatically.
 
-> **Dot notation note:** Use dots for nested group fields (`group.field`). Avoid top-level field handles with underscores that could collide with group subfield paths, as both map to the same CP element ID.
+### Blade
+
+```blade
+{{-- Recommended: pass the blueprint handle (works without an entry object) --}}
+<h1 {!! Statamic::tag('visual_edit')->blueprint('collections.pages')->field('hero_title')->fetch() !!}>
+
+{{-- Alternative: pass the entry for blueprint resolution --}}
+<h1 {!! Statamic::tag('visual_edit')->context(['page' => $entry])->field('hero_title')->fetch() !!}>
+
+{{-- Minimal: no label resolution (CP navigation still works; label is cosmetic) --}}
+<h1 {!! Statamic::tag('visual_edit')->field('hero_title')->fetch() !!}>
+```
+
+The `blueprint` parameter accepts a namespaced handle: `collections.{handle}`, `globals.{handle}`.
+
+> **Tip:** In Blade components you often don't have the entry object — use `->blueprint()` instead of threading `$entry` through props.
+
+### Dot notation
+
+Use dots to target nested fields inside groups: `page_info.author`. Avoid top-level field handles containing underscores that could collide with group subfield paths — both `page_info.author` and `page_info_author` resolve to the same CP element ID.
 
 ---
 
-## Reference
-
-### `{{ visual_edit }}` parameters
-
-| Parameter | Default | Description |
-|---|---|---|
-| _(none)_ | — | Auto-targets the current set by its UUID |
-| `field="handle"` | — | Targets a fixed field by handle (dot notation for nested) |
-| `blueprint="namespace.handle"` | — | Resolve field display names from a specific blueprint (e.g. `collections.jobs`, `globals.settings`). Only needed for the tooltip label — field targeting works without it. Primarily useful in Blade; in Antlers the current entry provides the blueprint automatically. |
-| `outline-inside="true"` | `false` | Draws the highlight outline inside the element border (useful in dense layouts where a 2px outbound outline overlaps neighbours) |
-| `id="uuid"` | — | Override: target a specific set by a known UUID |
-
-### Blade usage
-
-Use Statamic's `Statamic::tag('visual_edit')` fluent API — it supports the same params as the Antlers tag and is a no-op outside Live Preview.
-
-**Set targeting** (equivalent to `{{ visual_edit }}`):
-
-```blade
-{{-- $set is an augmented Statamic set; its data includes _visual_id and type --}}
-<div {!! Statamic::tag('visual_edit')->context($set->all())->fetch() !!}>
-```
-
-**Field targeting — with a blueprint handle** (no entry object needed):
-
-```blade
-<h1 {!! Statamic::tag('visual_edit')->blueprint('collections.jobs')->field('heading')->fetch() !!}>
-```
-
-Pass the namespaced blueprint handle (`collections.{handle}`, `globals.{handle}`). The addon resolves the field's display name for the tooltip label automatically.
-
-**Field targeting — with an entry object** (if already available in the view):
-
-```blade
-<h1 {!! Statamic::tag('visual_edit')->context(['page' => $entry])->field('heading')->fetch() !!}>
-```
-
-**Field targeting — without label** (CP navigation still works; tooltip label is cosmetic):
-
-```blade
-<h1 {!! Statamic::tag('visual_edit')->field('heading')->fetch() !!}>
-```
-
-**With `outline-inside`**:
-
-```blade
-<div {!! Statamic::tag('visual_edit')->blueprint('collections.jobs')->field('intro')->params(['outline-inside' => true])->fetch() !!}>
-```
-
-> **Note:** In anonymousBlade components you often don't have the entry object — use the `blueprint=` approach instead of trying to pass `$entry` as a prop down through component chains.
-
-#### Low-level UUID helper
-
-For UUID-based set targeting when you already have the raw `_visual_id` value:
-
-```blade
-<div {!! visual_edit($set['_visual_id'] ?? null, $set['type'] ?? null) !!}>
-```
-
-`visual_edit($uuid, $type)` returns a `data-sid` attribute string or an empty string outside Live Preview. It does **not** support field targeting or blueprint label resolution.
+## Additional features
 
 ### Pair tag
 
-When you have no single outermost element to annotate, the pair tag wraps its content in a `<div>`:
+When there's no single outermost element to annotate, use the pair tag to wrap content in a `<div>`:
 
 ```antlers
 {{ visual_edit }}
@@ -130,16 +138,52 @@ When you have no single outermost element to annotate, the pair tag wraps its co
 {{ /visual_edit }}
 ```
 
+### Outline inside
+
+For dense layouts where a 2 px outbound outline overlaps neighbouring elements, draw the outline inside instead:
+
+```antlers
+<div {{ visual_edit outline-inside="true" }}>
+```
+
+```blade
+<div {!! Statamic::tag('visual_edit')->context($set->all())->params(['outline-inside' => true])->fetch() !!}>
+```
+
+---
+
+## Parameter reference
+
+All parameters work in both Antlers and Blade (via the fluent API).
+
+| Parameter | Default | Description |
+|---|---|---|
+| _(none)_ | — | Auto-targets the current set by its UUID |
+| `field` | — | Targets a fixed field by handle (dot notation for nested groups) |
+| `blueprint` | — | Resolve field labels from a specific blueprint (e.g. `collections.pages`). In Antlers the entry's blueprint is used automatically. |
+| `outline-inside` | `false` | Draws the outline inside the element border |
+| `id` | — | Override: target a specific set by a known UUID |
+
+### Antlers ↔ Blade mapping
+
+| Antlers | Blade |
+|---------|-------|
+| `{{ visual_edit }}` | `Statamic::tag('visual_edit')->context($set->all())->fetch()` |
+| `{{ visual_edit field="title" }}` | `Statamic::tag('visual_edit')->field('title')->fetch()` |
+| `{{ visual_edit field="title" blueprint="collections.pages" }}` | `Statamic::tag('visual_edit')->blueprint('collections.pages')->field('title')->fetch()` |
+| `{{ visual_edit outline-inside="true" }}` | `Statamic::tag('visual_edit')->context($set->all())->params(['outline-inside' => true])->fetch()` |
+
 ---
 
 ## Developer reference
 
 ### How it works
 
-The addon has two targeting mechanisms:
-
-- **UUID-based** (sets): `InjectVisualIdIntoBlueprint` adds a hidden `_visual_id` field to every Replicator/Bard/Grid set. `StampVisualIds` assigns stable UUIDs on save. `{{ visual_edit }}` outputs `data-sid="{uuid}"`. `bridge.js` (injected by middleware) sends `{ type: 'click', uid }` via `postMessage`; `cp.js` expands, scrolls, and highlights the set.
-- **Field-based**: `{{ visual_edit field="path" }}` outputs `data-sid-field="path"`. `bridge.js` sends `{ type: 'click', field: 'path' }`; `cp.js` resolves `#field_{path}` in the DOM, switches tabs if needed, scrolls, and pulses the border.
+1. **Blueprint injection** — `InjectVisualIdIntoBlueprint` adds a hidden `_visual_id` field to every Replicator, Bard, and Grid set when a blueprint is loaded.
+2. **UUID stamping** — `StampVisualIds` generates stable UUIDs on save for any item missing a `_visual_id`.
+3. **Template annotation** — `{{ visual_edit }}` outputs `data-sid="{uuid}"` (set targeting) or `data-sid-field="{path}"` (field targeting) plus optional label/type attributes.
+4. **Bridge script** — `InjectBridgeScript` middleware injects `bridge.js` into the Live Preview iframe. It handles click/hover events and communicates with the CP via `postMessage`.
+5. **CP script** — `addon.js` (loaded via Vite) listens for messages from the iframe, expands collapsed sets, switches tabs, scrolls, and highlights the target field.
 
 Hover sync works in both directions for both mechanisms.
 
