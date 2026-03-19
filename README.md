@@ -1,6 +1,13 @@
 # Statamic Visual Editor
 
-Click any element in Statamic's Live Preview and the corresponding field in the Control Panel automatically expands, scrolls into view, and highlights. Zero production footprint — all annotations are stripped outside of Live Preview.
+Drop a tag on each component and editors always know exactly what they're editing — no matter how deeply nested.
+
+- **Two-way sync** — click or hover in the Live Preview or Control Panel and the other side highlights instantly
+- **Auto-expand** — click in the Live Preview and the matching set opens and scrolls into view in the Control Panel
+- **Zero production footprint** — annotations and scripts are stripped outside of Live Preview
+
+> [!IMPORTANT]
+> **This is the installable package repository** — it is auto-synced from the [development repository](https://github.com/mariohamann/statamic-visual-editor-dev), which contains a full demo including tests. Please open issues and PRs there, not here.
 
 ## Demo
 
@@ -190,23 +197,3 @@ All parameters work in both Antlers and Blade (via the fluent API).
 5. **CP script** — `addon.js` (loaded via Vite) listens for messages from the iframe, expands collapsed sets, switches tabs, scrolls, and highlights the target field.
 
 Hover sync works in both directions for both mechanisms.
-
-### Building assets (development)
-
-```bash
-# 1. PHP formatting
-vendor/bin/pint addons/mariohamann/statamic-visual-editor/src addons/mariohamann/statamic-visual-editor/tests --format agent
-
-# 2. Build JS
-cd addons/mariohamann/statamic-visual-editor && npm run build
-
-# 3. Publish to public/
-php artisan vendor:publish --provider="MarioHamann\StatamicVisualEditor\ServiceProvider" --force
-
-# 4. PHP tests
-cd addons/mariohamann/statamic-visual-editor && vendor/bin/phpunit
-
-# 5. E2E tests (requires site running)
-npx playwright test
-```
-
