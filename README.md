@@ -2,6 +2,10 @@
 
 Click any element in Statamic's Live Preview and the corresponding field in the Control Panel automatically expands, scrolls into view, and highlights. Zero production footprint — all annotations are stripped outside of Live Preview.
 
+## Demo
+
+<video src="https://github.com/user-attachments/assets/97ec557d-2642-4e74-87df-fb365a03154b"></video>
+
 ## Requirements
 
 - Statamic 6
