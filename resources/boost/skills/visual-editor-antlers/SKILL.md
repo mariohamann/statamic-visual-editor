@@ -5,47 +5,25 @@ description: "Adds Visual Editor click-to-edit annotations to Antlers templates.
 
 # Visual Editor — Antlers Templates
 
-## When to Apply
-
-Activate this skill when:
-
-- Adding `{{ visual_edit }}` tags to Antlers (`.antlers.html`) templates
-- Implementing click-to-edit for Replicator, Bard, or Grid sets in Antlers
-- Adding field targeting to Antlers templates
-
 ## Key Principle
 
-`{{ visual_edit }}` outputs raw HTML data attributes when inside Live Preview and outputs **nothing** outside Live Preview. It has zero production footprint.
+`{{ visual_edit }}` outputs raw HTML data attributes in Live Preview and **nothing** outside it. Zero production footprint — annotations are always safe to add. Even sets rendered inline in a larger template (without a dedicated partial) can be annotated directly on the element in the loop.
 
 ---
 
 ## Set Targeting (Replicator / Bard / Grid)
 
-Place `{{ visual_edit }}` on the **outermost HTML element** of each set partial. The tag automatically reads `_visual_id` and `type` from the current Antlers context — no parameters needed.
-
-### Replicator Set Partial
+Place `{{ visual_edit }}` on the outermost HTML element of each set partial. The tag reads `_visual_id` and `type` from the Antlers context automatically — no parameters needed.
 
 ```antlers
-{{# resources/views/page_builder/_article.antlers.html #}}
+{{# Replicator / Bard set partial #}}
 <section class="fluid-grid" {{ visual_edit }}>
-    {{# set content here #}}
+    {{# content #}}
 </section>
 ```
 
-### Bard Set Partial
-
 ```antlers
-{{# resources/views/components/_text.antlers.html #}}
-<div class="prose" {{ visual_edit }}>
-    {{ text }}
-</div>
-```
-
-### Grid Rows
-
-For Grid fields, add `{{ visual_edit }}` inside the loop on each row's element:
-
-```antlers
+{{# Grid rows — add inside the loop #}}
 {{ links }}
     <li {{ visual_edit }}>
         <a href="{{ link_url }}">{{ label }}</a>
@@ -53,58 +31,11 @@ For Grid fields, add `{{ visual_edit }}` inside the loop on each row's element:
 {{ /links }}
 ```
 
-### Rules
+Each item in an iterated loop gets its own tag — including Bard sets nested inside Replicator sets. A single template will often have multiple `{{ visual_edit }}` tags when it renders multiple set items, which is totally fine. Just avoid tagging both a parent element and a child element for the *same* set item, since only one is needed.
 
-1. **Always place on the outermost element** of the set partial — the element that wraps all of the set's content.
-2. **One tag per set** — don't add `{{ visual_edit }}` to multiple elements within the same set.
-3. **No parameters needed** — `_visual_id` and `type` are read from context automatically.
-4. **Works in nested sets** — Bard sets inside Replicator sets each get their own `{{ visual_edit }}`.
+### Pair Tag
 
----
-
-## Field Targeting (Fixed Fields)
-
-For fields that are NOT inside a Replicator/Bard/Grid (e.g., `title`, SEO fields, group sub-fields), use the `field` parameter:
-
-```antlers
-<h1 {{ visual_edit field="title" }}>{{ title }}</h1>
-```
-
-### Dot Notation for Grouped Fields
-
-Target fields inside groups using dot-separated paths:
-
-```antlers
-<p {{ visual_edit field="page_info.author" }}>{{ page_info:author }}</p>
-<p {{ visual_edit field="page_info.notes" }}>{{ page_info:notes }}</p>
-```
-
-Note: In Antlers, accessing grouped field values uses colons (`page_info:author`), but the `visual_edit` field parameter uses dots (`page_info.author`).
-
-### Live Preview Conditional
-
-Field-targeted elements often add extra wrapper markup that shouldn't appear on the production frontend. Wrap them in a Live Preview conditional:
-
-```antlers
-{{ if live_preview }}
-    <div {{ visual_edit field="seo_title" outline-inside="true" }}>
-        {{ seo_title }}
-    </div>
-    <div {{ visual_edit field="seo_description" outline-inside="true" }}>
-        {{ seo_description }}
-    </div>
-{{ /if }}
-```
-
-### Blueprint Parameter
-
-In Antlers, the entry's blueprint is resolved automatically — you don't need to pass it. The `blueprint` parameter is only needed in Blade.
-
----
-
-## Pair Tag
-
-When a set has no single outermost HTML element, use `{{ visual_edit }}` as a pair tag. It wraps the content in a `<div>`:
+When there's no single outermost element, use the pair form to wrap content in a `<div>`:
 
 ```antlers
 {{ visual_edit }}
@@ -113,54 +44,44 @@ When a set has no single outermost HTML element, use `{{ visual_edit }}` as a pa
 {{ /visual_edit }}
 ```
 
-Use this sparingly — prefer adding the tag to an existing wrapper element when one exists.
+---
+
+## Field Targeting (Fixed Fields)
+
+For fields outside Replicator/Bard/Grid (e.g., `title`, SEO fields, group sub-fields), use the `field` parameter. The entry's blueprint is resolved automatically in Antlers.
+
+The most common use is annotating elements that already exist in the markup:
+
+```antlers
+<h1 {{ visual_edit field="title" }}>{{ title }}</h1>
+
+{{# Dot notation for grouped fields #}}
+<p {{ visual_edit field="page_info.author" }}>{{ page_info:author }}</p>
+```
+
+Note: Antlers accesses group values with colons (`page_info:author`) but `visual_edit` uses dots (`page_info.author`).
+
+### Surfacing hidden fields in Live Preview
+
+Some fields (like SEO metadata) don't have a visible element on the page but you still want authors to be able to click to edit them in Live Preview. Wrap a representative element in `{{ if live_preview }}` to make it appear only during preview:
+
+```antlers
+{{ if live_preview }}
+    <div {{ visual_edit field="seo_title" outline-inside="true" }}>{{ seo_title }}</div>
+    <div {{ visual_edit field="seo_description" outline-inside="true" }}>{{ seo_description }}</div>
+{{ /if }}
+```
+
+This is optional. The typical case is simply annotating elements that are already there.
 
 ---
 
 ## Outline Inside
 
-For dense layouts where the default 2px outbound outline overlaps neighbouring elements, draw the outline inside instead:
+For dense layouts where the outbound outline overlaps neighbours:
 
 ```antlers
-<div {{ visual_edit outline-inside="true" }}>
-    {{ text }}
-</div>
-```
-
----
-
-## Complete Example
-
-A typical page builder template rendering Replicator sets:
-
-```antlers
-{{# resources/views/default.antlers.html #}}
-{{ page_builder }}
-    {{ partial src="page_builder/_{type}" }}
-{{ /page_builder }}
-```
-
-Each set partial (e.g., `_article.antlers.html`):
-
-```antlers
-<section class="fluid-grid {{ class }}" {{ visual_edit }}>
-    <div class="span-content">
-        {{ article }}
-            {{ partial src="components/_{type}" }}
-        {{ /article }}
-    </div>
-</section>
-```
-
-Each Bard set partial (e.g., `_pull_quote.antlers.html`):
-
-```antlers
-<figure class="span-md" {{ visual_edit }}>
-    <blockquote>{{ quote }}</blockquote>
-    {{ if author }}
-        <figcaption>{{ author }}</figcaption>
-    {{ /if }}
-</figure>
+<div {{ visual_edit outline-inside="true" }}>{{ text }}</div>
 ```
 
 ---
@@ -169,21 +90,7 @@ Each Bard set partial (e.g., `_pull_quote.antlers.html`):
 
 | Parameter | Default | Description |
 |---|---|---|
-| _(none)_ | — | Auto-targets the current set by its UUID (reads `_visual_id` from context) |
+| _(none)_ | — | Auto-targets the current set by UUID (reads `_visual_id` from context) |
 | `field` | — | Targets a fixed field by handle (dot notation for nested groups) |
 | `outline-inside` | `false` | Draws the highlight outline inside the element border |
 | `id` | — | Override: target a specific set by a known UUID |
-
----
-
-## Checklist
-
-When adding `{{ visual_edit }}` to an Antlers template:
-
-- [ ] Tag is on the outermost element of the set partial
-- [ ] Only one `{{ visual_edit }}` per set (not duplicated on child elements)
-- [ ] For grid rows: tag is inside the loop on each row's element
-- [ ] For field targeting: `field="handle"` parameter is set with the correct blueprint field handle
-- [ ] For grouped fields: using dot notation (`field="group.subfield"`)
-- [ ] Field-targeted elements wrapped in `{{ if live_preview }}` if they add extra markup
-- [ ] Tested in Live Preview to confirm clicking highlights the correct CP field

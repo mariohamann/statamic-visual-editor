@@ -40,7 +40,7 @@ Both modes are fully bidirectional: clicking or hovering in the preview highligh
 
 ## Set targeting
 
-Targets individual Replicator, Bard, or Grid items. The addon automatically adds a hidden `_visual_id` field to every set in your blueprints and stamps a stable UUID on save — **no blueprint changes required**. You only need to re-save existing entries once so UUIDs get generated.
+Targets individual Replicator, Bard, or Grid items. The addon automatically adds a hidden `_visual_id` field to every set in your blueprints and stamps a stable UUID during preview and on save — **no blueprint changes required**.
 
 ### Antlers
 

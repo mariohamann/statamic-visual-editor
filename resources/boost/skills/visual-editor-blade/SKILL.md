@@ -5,188 +5,111 @@ description: "Adds Visual Editor click-to-edit annotations to Blade templates. A
 
 # Visual Editor — Blade Templates
 
-## When to Apply
-
-Activate this skill when:
-
-- Adding `visual_edit` tags to Blade (`.blade.php`) templates
-- Implementing click-to-edit for Replicator, Bard, or Grid sets in Blade
-- Adding field targeting to Blade templates or components
-
 ## Key Principle
 
-The Visual Editor tag outputs raw HTML data attributes when inside Live Preview and outputs **nothing** outside Live Preview. It has zero production footprint.
+The tag outputs raw HTML data attributes in Live Preview and **nothing** outside it. Zero production footprint — annotations are always safe to add. Even sets rendered inline in a larger template (without a dedicated partial) can be annotated directly on the element in the loop.
 
-**Critical:** Always use `{!! !!}` (unescaped output) — never `{{ }}`. The tag returns raw HTML attributes that must not be escaped.
+**Critical:** Always use `{!! !!}` (unescaped) — never `{{ }}`. The tag returns raw HTML attributes.
 
 ---
 
 ## Set Targeting (Replicator / Bard / Grid)
 
-Use `Statamic::tag('visual_edit')->context($set->all())->fetch()` on the outermost element. You must pass the full set/row data via `->context()` so the tag can read `_visual_id` and `type`.
-
-### Replicator Set
+Pass the full set/row data via `->context()` so the tag can read `_visual_id` and `type`. Place on the outermost element.
 
 ```blade
-{{-- resources/views/page_builder/article.blade.php --}}
+{{-- Replicator / Bard set partial --}}
 <section class="fluid-grid" {!! Statamic::tag('visual_edit')->context($set->all())->fetch() !!}>
-    {{-- set content here --}}
+    {{-- content --}}
 </section>
 ```
 
-### Bard Set
-
 ```blade
-{{-- resources/views/components/text.blade.php --}}
-<div class="prose" {!! Statamic::tag('visual_edit')->context($set->all())->fetch() !!}>
-    {!! $set->text !!}
-</div>
-```
-
-### Grid Rows
-
-```blade
+{{-- Grid rows --}}
 @foreach ($rows as $row)
     <li {!! Statamic::tag('visual_edit')->context($row->all())->fetch() !!}>
-        <a href="{!! (string) ($row->link_url ?? '') !!}">{!! (string) ($row->label ?? '') !!}</a>
+        {{ $row->label }}
     </li>
 @endforeach
 ```
 
-### Rules
-
-1. **Always call `->context($set->all())`** — without context the tag cannot find the UUID.
-2. **Always use `{!! !!}`** — `{{ }}` will escape the HTML attributes and break them.
-3. **Place on the outermost element** of the set partial.
-4. **One tag per set** — don't add to multiple elements within the same set.
+Each item in an iterated loop gets its own tag. A single template will often have multiple tags when rendering multiple set items — that's expected. Avoid tagging both a parent element and a child element for the *same* set item, since only one is needed.
 
 ---
 
 ## Field Targeting (Fixed Fields)
 
-For fields NOT inside a Replicator/Bard/Grid, use `->field('handle')`:
+For fields outside Replicator/Bard/Grid, use `->field('handle')`. The label shown in the CP tooltip is resolved from the blueprint — pass a blueprint handle when the entry object isn't available (common in Blade components).
+
+The most common use is annotating elements that already exist in the markup:
 
 ```blade
-<h1 {!! Statamic::tag('visual_edit')->field('title')->fetch() !!}>
-    {{ $title }}
-</h1>
-```
-
-### Blueprint Resolution for Labels
-
-The tag resolves human-readable field labels from the blueprint. In Blade, the entry object is often not available in context (especially in Blade components), so you have three options:
-
-#### Option 1: Pass the blueprint handle (recommended)
-
-Works everywhere, no entry object needed:
-
-```blade
+{{-- Simple field on an existing element --}}
 <h1 {!! Statamic::tag('visual_edit')->blueprint('collections.pages')->field('hero_title')->fetch() !!}>
     {{ $hero_title }}
 </h1>
-```
 
-The `blueprint` parameter accepts namespaced handles:
-- `collections.{collection_handle}` — e.g., `collections.pages`, `collections.blog`
-- `globals.{global_handle}` — e.g., `globals.seo`
+{{-- Dot notation for grouped fields --}}
+<p {!! Statamic::tag('visual_edit')->blueprint('collections.pages')->field('page_info.author')->fetch() !!}>
+    {{ $author }}
+</p>
 
-#### Option 2: Pass the entry via context
-
-If you have the entry object available:
-
-```blade
+{{-- If the entry is available, pass it via context instead --}}
 <h1 {!! Statamic::tag('visual_edit')->context(['page' => $entry])->field('hero_title')->fetch() !!}>
     {{ $hero_title }}
 </h1>
-```
 
-#### Option 3: Minimal (no label resolution)
-
-CP navigation still works — the label is cosmetic only:
-
-```blade
+{{-- Minimal — label is cosmetic only, CP navigation still works without it --}}
 <h1 {!! Statamic::tag('visual_edit')->field('hero_title')->fetch() !!}>
     {{ $hero_title }}
 </h1>
 ```
 
-### Dot Notation for Grouped Fields
+The `blueprint` parameter accepts `collections.{handle}` or `globals.{handle}`.
 
-Target fields inside groups using dot-separated paths:
+### Surfacing hidden fields in Live Preview
 
-```blade
-<p {!! Statamic::tag('visual_edit')->blueprint('collections.pages')->field('page_info.author')->fetch() !!}>
-    {{ $page_info_author }}
-</p>
-```
+Some fields (like SEO metadata) don't have a visible element on the page but you still want authors to click to edit them in Live Preview. Wrap annotated placeholder elements in `@if(request()->isLivePreview())` so they appear only during preview.
 
-### Live Preview Conditional
-
-Field-targeted elements that add extra wrapper markup should be wrapped in a Live Preview check:
+A Blade component is a natural home for this — it receives props rather than the full entry, so use `->blueprint()` for label resolution:
 
 ```blade
+{{-- resources/views/components/seo-meta.blade.php --}}
+@props(['seoTitle', 'seoDescription'])
+
 @if(request()->isLivePreview())
-    <div {!! Statamic::tag('visual_edit')->field('seo_title')->params(['outline-inside' => true])->fetch() !!}>
-        {{ $seo_title }}
+    <div>
+        <p {!! Statamic::tag('visual_edit')
+            ->blueprint('collections.pages')
+            ->field('seo_title')
+            ->params(['outline-inside' => true])
+            ->fetch() !!}>
+            {{ $seoTitle }}
+        </p>
+        <p {!! Statamic::tag('visual_edit')
+            ->blueprint('collections.pages')
+            ->field('seo_description')
+            ->params(['outline-inside' => true])
+            ->fetch() !!}>
+            {{ $seoDescription }}
+        </p>
     </div>
 @endif
 ```
+
+This is optional and a progressive enhancement — the typical case is simply annotating elements that are already in the markup.
 
 ---
 
 ## Outline Inside
 
-For dense layouts where the default outline overlaps neighbouring elements:
+For dense layouts where the outbound outline overlaps neighbours:
 
 ```blade
 <div {!! Statamic::tag('visual_edit')->context($set->all())->params(['outline-inside' => true])->fetch() !!}>
     {!! $set->text !!}
 </div>
 ```
-
----
-
-## Common Blade Scenarios
-
-### Blade Components
-
-In Blade components you typically don't have the entry object. Use `->blueprint()` for label resolution:
-
-```blade
-{{-- resources/views/components/hero.blade.php --}}
-@props(['title', 'subtitle'])
-
-<div class="hero">
-    <h1 {!! Statamic::tag('visual_edit')->blueprint('collections.pages')->field('hero_title')->fetch() !!}>
-        {{ $title }}
-    </h1>
-    <p {!! Statamic::tag('visual_edit')->blueprint('collections.pages')->field('hero_subtitle')->fetch() !!}>
-        {{ $subtitle }}
-    </p>
-</div>
-```
-
-### Replicator Loop in a Blade Layout
-
-```blade
-@foreach ($page->page_builder as $set)
-    <section {!! Statamic::tag('visual_edit')->context($set->all())->fetch() !!}>
-        @include('page_builder.' . $set->type, ['set' => $set])
-    </section>
-@endforeach
-```
-
-### When Context Data is Unavailable
-
-If you cannot access `$set->all()` (e.g., in a heavily abstracted component), you can pass the UUID directly using the `id` parameter:
-
-```blade
-<div {!! Statamic::tag('visual_edit')->params(['id' => $visualId])->fetch() !!}>
-    {{-- content --}}
-</div>
-```
-
-This is a fallback — prefer passing full context when possible.
 
 ---
 
@@ -198,7 +121,6 @@ This is a fallback — prefer passing full context when possible.
 | `{{ visual_edit field="title" }}` | `Statamic::tag('visual_edit')->field('title')->fetch()` |
 | `{{ visual_edit field="title" blueprint="collections.pages" }}` | `Statamic::tag('visual_edit')->blueprint('collections.pages')->field('title')->fetch()` |
 | `{{ visual_edit outline-inside="true" }}` | `Statamic::tag('visual_edit')->context($set->all())->params(['outline-inside' => true])->fetch()` |
-| `{{ visual_edit id="custom-uuid" }}` | `Statamic::tag('visual_edit')->params(['id' => 'custom-uuid'])->fetch()` |
 
 ---
 
@@ -211,18 +133,3 @@ This is a fallback — prefer passing full context when possible.
 | `->blueprint('ns.handle')` | — | Resolve field labels from a specific blueprint |
 | `->params(['outline-inside' => true])` | `false` | Draw the highlight outline inside the element border |
 | `->params(['id' => 'uuid'])` | — | Override: target a specific set by a known UUID |
-
----
-
-## Checklist
-
-When adding `visual_edit` to a Blade template:
-
-- [ ] Using `{!! !!}` (unescaped), NOT `{{ }}`
-- [ ] Calling `->context($set->all())` for set targeting (not `$set` alone — must be `->all()`)
-- [ ] Tag is on the outermost element of the set partial
-- [ ] Only one tag per set (not duplicated on child elements)
-- [ ] For field targeting: `->field('handle')` has the correct blueprint field handle
-- [ ] For label resolution: `->blueprint('collections.handle')` or `->context(['page' => $entry])` is passed
-- [ ] Field-targeted elements wrapped in `@if(request()->isLivePreview())` if they add extra markup
-- [ ] Tested in Live Preview to confirm clicking highlights the correct CP field
