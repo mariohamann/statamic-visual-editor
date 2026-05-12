@@ -7,12 +7,12 @@ use Statamic\Fields\Fieldtype;
 
 class AutoUuidFieldtype extends Fieldtype
 {
-  protected static $handle = 'auto_uuid';
+    protected static $handle = 'auto_uuid';
 
-  protected $selectable = false;
+    protected $selectable = false;
 
-  public function preProcess(mixed $data): string
-  {
-    return $data ?? (string) Str::uuid();
-  }
+    public function preProcess(mixed $data): string
+    {
+        return $data ?? (string) Str::uuid();
+    }
 }

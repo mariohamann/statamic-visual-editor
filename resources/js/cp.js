@@ -586,6 +586,10 @@ export function initCp(win = window) {
   let lastCpHoverUid = null;
 
   const handleMouseover = (event) => {
+    if (!win.document.getElementById('live-preview-iframe')) {
+      return;
+    }
+
     const set = event.target.closest(SELECTORS.anySet);
 
     if (!set) {
@@ -678,6 +682,10 @@ export function initCp(win = window) {
   // CP → iframe: clicking anywhere inside a set focuses the corresponding element in the preview.
   // Uses closest() to get the innermost set, so nested replicators resolve correctly.
   const handleClick = (event) => {
+    if (!win.document.getElementById('live-preview-iframe')) {
+      return;
+    }
+
     const set = event.target.closest(SELECTORS.anySet);
 
     if (!set) {
