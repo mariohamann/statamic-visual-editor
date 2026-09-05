@@ -172,6 +172,19 @@ export function focusBardSet(setEl, duration = HIGHLIGHT_DURATION) {
  * Returns true when a tab switch was initiated, false when not needed or not
  * possible.
  */
+/**
+ * If setEl lives inside an inactive tab panel, switches to the containing tab.
+ *
+ * Backwards compatibility:
+ * - Strategy 1 (Legacy Statamic <6.31.0): Walks the Vue component parent chain
+ *   looking for Statamic's PublishTabs component which exposes a `setActive(handle)` fn.
+ * - Strategy 2 (Statamic >=6.31.0 / Reka UI): Reka UI's TabsTrigger listens to
+ *   left-click @pointerdown / @mousedown events on the trigger button. Dispatches
+ *   a complete left-click event sequence (pointerdown, mousedown, mouseup, click)
+ *   with button: 0 to activate the tab trigger.
+ *
+ * Returns true when a tab switch was initiated, false when not needed or not possible.
+ */
 export function switchToContainingTab(setEl, doc = document) {
   const tabPanel = setEl.closest('[role="tabpanel"]');
 
@@ -195,36 +208,37 @@ export function switchToContainingTab(setEl, doc = document) {
     return false;
   }
 
-  // Extract the tab handle from the panel ID: "reka-tabs-v-N-content-{handle}"
+  // Strategy 1 (Legacy Statamic <6.31.0): Check for component.setupState.setActive
+  // by walking the Vue component parent chain from the trigger element.
   const match = tabPanel.id.match(/-content-(.+)$/);
-  if (!match) {
-    return false;
-  }
+  if (match) {
+    const tabHandle = match[1];
+    let component = trigger.__vueParentComponent;
 
-  const tabHandle = match[1];
+    for (let depth = 0; component && depth < 40; depth++) {
+      const setActive = component.setupState?.setActive;
 
-  // Walk the Vue component parent chain from the trigger element, looking for
-  // Statamic's PublishTabs component which exposes a `setActive(handle)` fn.
-  // Starting from the trigger traverses through reka-ui internals to the same
-  // component instance that owns the reactive activeTab state.
-  //
-  // Note: component.setupState auto-unwraps Vue refs to plain values, so we
-  // cannot set activeTab directly. Functions are not auto-unwrapped, so
-  // setActive is reachable as typeof setupState.setActive === 'function'.
-  let component = trigger.__vueParentComponent;
+      if (typeof setActive === 'function') {
+        setActive(tabHandle);
+        return true;
+      }
 
-  for (let depth = 0; component && depth < 40; depth++) {
-    const setActive = component.setupState?.setActive;
-
-    if (typeof setActive === 'function') {
-      setActive(tabHandle);
-      return true;
+      component = component.parent;
     }
-
-    component = component.parent;
   }
 
-  return false;
+  // Strategy 2 (Statamic >=6.31.0 / Reka UI & standard DOM triggers):
+  // Reka UI / Radix Vue TabsTrigger checks event.button === 0 (left-click) on
+  // @pointerdown / @mousedown to activate tabs. Synthesize a complete left-click
+  // sequence (pointerdown, mousedown, mouseup, click) so Reka UI and standard
+  // event listeners activate the tab trigger reliably across framework versions.
+  const opts = { bubbles: true, cancelable: true, button: 0 };
+  trigger.dispatchEvent(new PointerEvent('pointerdown', opts));
+  trigger.dispatchEvent(new MouseEvent('mousedown', opts));
+  trigger.dispatchEvent(new MouseEvent('mouseup', opts));
+  trigger.click();
+
+  return true;
 }
 
 export function handleFocus(uid, doc = document, afterSetUid = undefined) {
@@ -238,38 +252,40 @@ export function handleFocus(uid, doc = document, afterSetUid = undefined) {
     return;
   }
 
-  // Mark as active — persists until the next focus event.
-  setEl.setAttribute(ACTIVE_ATTR, '');
-
   const tabSwitched = switchToContainingTab(setEl, doc);
 
-  // When a tab switch was initiated, Vue removes the .hidden class in a
-  // microtask. Defer the expand/scroll/highlight block so it runs after the
-  // panel becomes visible; otherwise scrollIntoView is a no-op on a hidden el.
+  // When a tab switch was initiated, Vue updates DOM / tab panel visibility.
+  // Defer the expand/scroll/highlight block so it runs after the panel becomes visible;
+  // otherwise scrollIntoView is a no-op on a hidden el, and re-query target setEl.
   const applyFocus = () => {
-    const ancestors = collectAncestorSets(setEl);
+    const targetSetEl = findSetByUid(uid, doc) || setEl;
+
+    doc.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => el.removeAttribute(ACTIVE_ATTR));
+    targetSetEl.setAttribute(ACTIVE_ATTR, '');
+
+    const ancestors = collectAncestorSets(targetSetEl);
 
     // Check before expanding so we know whether to defer the scroll.
-    const anyCollapsed = [...ancestors, setEl].some(isSetCollapsed);
+    const anyCollapsed = [...ancestors, targetSetEl].some(isSetCollapsed);
 
-    [...ancestors, setEl].forEach(expandSet);
+    [...ancestors, targetSetEl].forEach(expandSet);
 
     const doScrollAndHighlight = () => {
       // When a precise text target (afterSetUid) is provided, skip scrolling to
       // the outer set — scrollBardToTextAfterSet will scroll directly to the text,
       // eliminating the two-step "jump to top of Bard then jump to text" behaviour.
       if (afterSetUid === undefined) {
-        setEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        targetSetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
-      if (setEl.hasAttribute('data-node-view-wrapper')) {
-        focusBardSet(setEl);
+      if (targetSetEl.hasAttribute('data-node-view-wrapper')) {
+        focusBardSet(targetSetEl);
       } else {
-        highlightSet(setEl);
+        highlightSet(targetSetEl);
       }
 
       if (afterSetUid !== undefined) {
-        setTimeout(() => scrollBardToTextAfterSet(afterSetUid, setEl), COLLAPSE_SETTLE_MS);
+        setTimeout(() => scrollBardToTextAfterSet(afterSetUid, targetSetEl), COLLAPSE_SETTLE_MS);
       }
     };
 
@@ -336,16 +352,19 @@ export function handleFieldFocus(fieldPath, doc = document, { animate = true } =
     return;
   }
 
-  fieldEl.setAttribute(ACTIVE_ATTR, '');
-
   const tabSwitched = switchToContainingTab(fieldEl, doc);
 
   const applyFocus = () => {
-    fieldEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const targetFieldEl = findFieldElement(fieldPath, doc) || fieldEl;
+
+    doc.querySelectorAll(`[${ACTIVE_ATTR}]`).forEach((el) => el.removeAttribute(ACTIVE_ATTR));
+    targetFieldEl.setAttribute(ACTIVE_ATTR, '');
+
+    targetFieldEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     if (animate) {
-      fieldEl.classList.add('sve-field-highlight');
-      setTimeout(() => fieldEl.classList.remove('sve-field-highlight'), 2000);
+      targetFieldEl.classList.add('sve-field-highlight');
+      setTimeout(() => targetFieldEl.classList.remove('sve-field-highlight'), 2000);
     }
   };
 
