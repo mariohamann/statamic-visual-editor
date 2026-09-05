@@ -5,7 +5,9 @@ namespace MarioHamann\StatamicVisualEditor\Tests\Listeners;
 use MarioHamann\StatamicVisualEditor\Tests\TestCase;
 use Statamic\Events\EntrySaving;
 use Statamic\Events\GlobalVariablesSaving;
+use Statamic\Facades\Fieldset;
 use Statamic\Fields\Blueprint;
+use Statamic\Fields\Fieldset as FieldsetModel;
 
 class StripVisualIdsTest extends TestCase
 {
@@ -597,5 +599,38 @@ class StripVisualIdsTest extends TestCase
         $this->assertSame('photo.jpg', $data['hero_image']);
         $this->assertArrayNotHasKey('_visual_id', $data);
         $this->assertArrayNotHasKey('_visual_id', $data['items'][0]);
+    }
+
+    public function test_visual_ids_are_stripped_from_imported_fieldsets(): void
+    {
+        $mockFieldset = (new FieldsetModel)->setHandle('content_blocks')->setContents([
+            'title' => 'Content Blocks',
+            'fields' => [
+                $this->replicatorField('content', [
+                    'text_block' => $this->textSet(),
+                ]),
+            ],
+        ]);
+
+        Fieldset::shouldReceive('find')
+            ->with('content_blocks')
+            ->andReturn($mockFieldset);
+
+        $blueprint = $this->makeBlueprint([
+            ['import' => 'content_blocks'],
+        ]);
+
+        $entry = $this->makeTestObject($blueprint, [
+            'content' => [
+                ['type' => 'text_block', 'text' => 'Hello', '_visual_id' => 'imported-uuid'],
+            ],
+        ]);
+
+        EntrySaving::dispatch($entry);
+
+        $data = $entry->data()->all();
+
+        $this->assertSame([['import' => 'content_blocks']], $blueprint->contents()['tabs']['main']['sections'][0]['fields']);
+        $this->assertArrayNotHasKey('_visual_id', $data['content'][0]);
     }
 }

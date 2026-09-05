@@ -11,11 +11,24 @@ class InjectVisualIdIntoBlueprint
 {
     use HandlesReplicatorSets;
 
+    private array $processedFieldsetImports = [];
+
     public function handle(EntryBlueprintFound|GlobalVariablesBlueprintFound $event): void
     {
+        if ($this->isBlueprintBuilderRequest()) {
+            return;
+        }
+
+        $this->processedFieldsetImports = [];
+
         $contents = $event->blueprint->contents();
         $contents = $this->processContents($contents);
         $event->blueprint->setContents($contents);
+    }
+
+    private function isBlueprintBuilderRequest(): bool
+    {
+        return (bool) request()->route()?->named('statamic.cp.blueprints.*');
     }
 
     private function processContents(array $contents): array
@@ -35,15 +48,9 @@ class InjectVisualIdIntoBlueprint
         $result = [];
 
         foreach ($fields as $fieldDef) {
-            // Expand fieldset imports inline so nested replicators/bards are reachable.
             if (isset($fieldDef['import'])) {
-                $fieldset = Fieldset::find($fieldDef['import']);
-
-                if ($fieldset) {
-                    $result = array_merge($result, $this->processFields($fieldset->contents()['fields'] ?? []));
-                } else {
-                    $result[] = $fieldDef;
-                }
+                $this->processFieldsetImport($fieldDef['import']);
+                $result[] = $fieldDef;
 
                 continue;
             }
@@ -71,6 +78,25 @@ class InjectVisualIdIntoBlueprint
         }
 
         return $result;
+    }
+
+    private function processFieldsetImport(string $handle): void
+    {
+        if (isset($this->processedFieldsetImports[$handle])) {
+            return;
+        }
+
+        $this->processedFieldsetImports[$handle] = true;
+
+        $fieldset = Fieldset::find($handle);
+
+        if (! $fieldset) {
+            return;
+        }
+
+        $contents = $fieldset->contents();
+        $contents['fields'] = $this->processFields($contents['fields'] ?? []);
+        $fieldset->setContents($contents);
     }
 
     private function resolveStringFieldRef(array $fieldDef): array

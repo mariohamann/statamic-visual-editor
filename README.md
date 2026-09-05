@@ -204,8 +204,8 @@ All parameters work in both Antlers and Blade (via the fluent API).
 
 ### How it works
 
-1. **Blueprint injection** — `InjectVisualIdIntoBlueprint` adds a hidden `_visual_id` field (type `auto_uuid`) to every Replicator, Bard, and Grid set when a blueprint is loaded.
-2. **Ephemeral UUID generation** — When the CP form loads, `AutoUuidFieldtype::preProcess()` generates a fresh UUID in-memory for any set that doesn't already have one. UUIDs are never persisted — `StripVisualIds` removes any `_visual_id` values from the data before saving.
+1. **Blueprint injection** — `InjectVisualIdIntoBlueprint` adds a hidden `_visual_id` field (type `auto_uuid`) to every Replicator, Bard, and Grid set when a publish blueprint is loaded. Statamic blueprint builder routes are skipped so schema editor saves cannot persist runtime-only fields. Fieldset imports are preserved as `import:` references in saved YAML and resolved only while traversing runtime field definitions.
+2. **Ephemeral UUID generation** — When the CP form loads, `AutoUuidFieldtype::preProcess()` generates a fresh UUID in-memory for any set that doesn't already have one. UUIDs are never persisted — `StripVisualIds` resolves the same field definitions and removes any `_visual_id` values from the data before saving.
 3. **Template annotation** — `{{ visual_edit }}` outputs `data-sid="{uuid}"` (set targeting) or `data-sid-field="{path}"` (field targeting) plus optional label/type attributes.
 4. **Bridge script** — `InjectBridgeScript` middleware injects `bridge.js` into the Live Preview iframe. It handles click/hover events and communicates with the CP via `postMessage`.
 5. **CP script** — `addon.js` (loaded via Vite) listens for messages from the iframe, expands collapsed sets, switches tabs, scrolls, and highlights the target field.

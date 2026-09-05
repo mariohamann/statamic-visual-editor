@@ -2,6 +2,7 @@
 
 namespace MarioHamann\StatamicVisualEditor\Tests\Listeners;
 
+use Illuminate\Support\Facades\Route;
 use MarioHamann\StatamicVisualEditor\Tests\TestCase;
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\GlobalVariablesBlueprintFound;
@@ -286,6 +287,30 @@ class InjectVisualIdIntoBlueprintTest extends TestCase
         $this->assertSame($contentsBeforeEvent, file_get_contents($yamlPath));
     }
 
+    public function test_blueprint_builder_requests_do_not_mutate_blueprint_contents(): void
+    {
+        Route::get('/cp/fields/blueprints/collections/pages/page/edit', fn () => null)
+            ->name('statamic.cp.blueprints.collections.edit');
+
+        request()->setRouteResolver(fn () => Route::getRoutes()->getByName('statamic.cp.blueprints.collections.edit'));
+
+        try {
+            $blueprint = $this->makeBlueprint([
+                $this->replicatorWithGroupedSets([
+                    'text_block' => $this->textSet('text_block'),
+                ]),
+            ]);
+
+            EntryBlueprintFound::dispatch($blueprint);
+
+            $fields = $this->getSetsFields($blueprint, 'content', 'main', 'text_block');
+
+            $this->assertNotContains('_visual_id', array_column($fields, 'handle'));
+        } finally {
+            request()->setRouteResolver(fn () => null);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // GlobalVariablesBlueprintFound
     // -------------------------------------------------------------------------
@@ -416,6 +441,38 @@ class InjectVisualIdIntoBlueprintTest extends TestCase
         $buttonField = collect($cardFields)->firstWhere('handle', 'button');
         $this->assertNotNull($buttonField);
         $this->assertSame('nonexistent.field', $buttonField['field']);
+    }
+
+    public function test_imported_fieldsets_are_not_expanded_into_blueprint_contents(): void
+    {
+        $mockFieldset = (new FieldsetModel)->setHandle('content_blocks')->setContents([
+            'title' => 'Content Blocks',
+            'fields' => [
+                $this->replicatorWithGroupedSets([
+                    'text_block' => $this->textSet('text_block'),
+                ]),
+            ],
+        ]);
+
+        Fieldset::shouldReceive('find')
+            ->with('content_blocks')
+            ->andReturn($mockFieldset);
+
+        $blueprint = $this->makeBlueprint([
+            ['import' => 'content_blocks'],
+        ]);
+
+        EntryBlueprintFound::dispatch($blueprint);
+
+        $fields = $blueprint->contents()['tabs']['main']['sections'][0]['fields'];
+
+        $this->assertSame([['import' => 'content_blocks']], $fields);
+
+        $importedField = $blueprint->fields()->get('content');
+        $sets = $importedField->config()['sets'] ?? [];
+        $textBlockFields = $sets['main']['sets']['text_block']['fields'] ?? [];
+
+        $this->assertContains('_visual_id', array_column($textBlockFields, 'handle'));
     }
 
     // -------------------------------------------------------------------------

@@ -5,6 +5,7 @@ namespace MarioHamann\StatamicVisualEditor\Listeners;
 use MarioHamann\StatamicVisualEditor\Traits\HandlesReplicatorSets;
 use Statamic\Events\EntrySaving;
 use Statamic\Events\GlobalVariablesSaving;
+use Statamic\Facades\Fieldset;
 
 class StripVisualIds
 {
@@ -34,6 +35,12 @@ class StripVisualIds
     private function processFieldsAgainstData(array $data, array $fieldDefs): array
     {
         foreach ($fieldDefs as $fieldDef) {
+            if (isset($fieldDef['import'])) {
+                $data = $this->processFieldsetImportAgainstData($data, $fieldDef);
+
+                continue;
+            }
+
             $handle = $fieldDef['handle'] ?? null;
             $type = $fieldDef['field']['type'] ?? null;
 
@@ -62,6 +69,39 @@ class StripVisualIds
         }
 
         return $data;
+    }
+
+    private function processFieldsetImportAgainstData(array $data, array $fieldDef): array
+    {
+        $fieldset = Fieldset::find($fieldDef['import']);
+
+        if (! $fieldset) {
+            return $data;
+        }
+
+        $fields = $fieldset->contents()['fields'] ?? [];
+        $prefix = $fieldDef['prefix'] ?? null;
+        $overrides = $fieldDef['config'] ?? [];
+
+        foreach ($fields as $index => $importedField) {
+            $handle = $importedField['handle'] ?? null;
+
+            if (! $handle) {
+                continue;
+            }
+
+            if (isset($overrides[$handle]) && is_array($importedField['field'] ?? null)) {
+                $importedField['field'] = array_merge($importedField['field'], $overrides[$handle]);
+            }
+
+            if ($prefix) {
+                $importedField['handle'] = $prefix.$handle;
+            }
+
+            $fields[$index] = $importedField;
+        }
+
+        return $this->processFieldsAgainstData($data, $fields);
     }
 
     private function processGridItems(array $rows, array $fieldDefs): array
